@@ -11,3 +11,6 @@ content/*.sqlite*
 *.local
 .vscode/
 .idea/
+
+# Local Netlify folder
+.netlify
