@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/src/style.css" />
@@ -26,41 +26,127 @@
   <body>
     <a class="skip" href="#main">Skip to content</a>
 
-    <header class="site-nav">
-      <a class="brand" href="#top" aria-label="Lamp & Light home">
-        <img src="/logo.png" alt="" width="36" height="36" />
-        <span>Lamp &amp; Light</span>
-      </a>
-      <nav aria-label="Primary">
-        <a href="#features">Features</a>
-        <a href="#download">Download</a>
-        <a
-          href="https://github.com/lioneltchami/Lamp-Light"
-          rel="noopener noreferrer"
-          target="_blank"
-          >GitHub</a
-        >
+    <header class="nav-mast">
+      <p class="mast-line">Desktop · Mac &amp; Windows · Free</p>
+      <p class="mast-name">
+        <img src="/logo.png" alt="" width="40" height="40" />
+        Lamp &amp; Light
+      </p>
+      <nav class="mast-nav" aria-label="Primary">
+        <ul>
+          <li><a href="#tour">Tour</a></li>
+          <li><a href="#download">Download</a></li>
+          <li>
+            <a
+              href="https://github.com/lioneltchami/Lamp-Light"
+              rel="noopener noreferrer"
+              target="_blank"
+              >GitHub</a
+            >
+          </li>
+        </ul>
       </nav>
+      <hr class="mast-rule" aria-hidden="true" />
     </header>
 
     <main id="main">
-      <section class="hero" id="top">
-        <div class="hero-glow" aria-hidden="true"></div>
-        <div class="hero-inner">
-          <img
-            class="hero-logo"
-            src="/logo.png"
-            alt="Lamp & Light"
-            width="160"
-            height="160"
-          />
-          <p class="hero-brand">Lamp &amp; Light</p>
-          <h1>Bible trivia, reading, and practice on your desktop.</h1>
-          <p class="hero-lead">
-            You get a daily question, offline BSB, WEB, and KJV texts, and
-            profiles that keep XP and streaks on this computer.
+      <section class="hero-art" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">Bible study on your machine</p>
+          <h1 id="hero-title">Trivia, reading, and practice that keep working offline.</h1>
+          <p class="lede">
+            You install once. Daily questions, BSB, WEB, and KJV texts, and
+            profiles stay on this computer.
           </p>
-          <div class="cta-row" id="download">
+        </div>
+        <figure class="lamp-figure" aria-hidden="true">
+          <svg
+            class="lamp"
+            viewBox="0 0 200 240"
+            role="img"
+            aria-label="Lamp illustration"
+          >
+            <ellipse class="lamp-glow" cx="100" cy="118" rx="54" ry="28" />
+            <path
+              class="lamp-shade"
+              d="M48 78 L152 78 L138 128 L62 128 Z"
+            />
+            <rect class="lamp-neck" x="92" y="128" width="16" height="36" />
+            <path
+              class="lamp-base"
+              d="M70 164 H130 L140 196 H60 Z"
+            />
+            <circle class="lamp-knob" cx="100" cy="72" r="6" />
+          </svg>
+          <figcaption class="visually-hidden">Lamp mark for Lamp &amp; Light</figcaption>
+        </figure>
+      </section>
+
+      <section class="workbench" id="tour">
+        <header class="workbench-head">
+          <h2>How you use it</h2>
+          <p>Three moments inside the desktop app.</p>
+        </header>
+
+        <ol class="steps">
+          <li class="step">
+            <span class="stage">1.0</span>
+            <div class="step-body">
+              <h3>Open today&rsquo;s question</h3>
+              <p>
+                One prompt lands each day. On Mac, set a reminder and watch the
+                dock badge until you answer.
+              </p>
+              <figure class="panel">
+                <p class="panel-label">Daily question</p>
+                <p class="panel-sample">
+                  &ldquo;Who interpreted Pharaoh&rsquo;s dreams in Egypt?&rdquo;
+                </p>
+              </figure>
+            </div>
+          </li>
+          <li class="step">
+            <span class="stage">2.0</span>
+            <div class="step-body">
+              <h3>Read without a signal</h3>
+              <p>
+                BSB, WEB, and KJV ship inside the install. You open the reader
+                and keep going when the network drops.
+              </p>
+              <figure class="panel">
+                <p class="panel-label">Reader</p>
+                <p class="panel-sample">
+                  Genesis 1 · BSB · offline text on disk
+                </p>
+              </figure>
+            </div>
+          </li>
+          <li class="step">
+            <span class="stage">3.0</span>
+            <div class="step-body">
+              <h3>Keep a local profile</h3>
+              <p>
+                XP, streaks, medals, highlights, and biblical avatars live in
+                your user data folder. Updates do not wipe them.
+              </p>
+              <figure class="panel">
+                <p class="panel-label">Profile</p>
+                <p class="panel-sample">
+                  Streak · medals · avatar on this machine
+                </p>
+              </figure>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <aside class="download-bar" id="download">
+        <div class="download-bar__inner">
+          <p class="download-bar__copy">
+            Mac (Apple Silicon and Intel) and Windows installers are on GitHub
+            Releases. Installed builds check for updates.
+          </p>
+          <div class="cta-row">
             <a
               class="btn btn-primary"
               data-platform="mac"
@@ -74,95 +160,29 @@
               >Download for Windows</a
             >
           </div>
-          <p class="hero-note">
-            Free.
-            <a
-              href="https://github.com/lioneltchami/Lamp-Light/releases/latest"
-              rel="noopener noreferrer"
-              target="_blank"
-              >All releases</a
-            >
-          </p>
         </div>
-      </section>
-
-      <section class="features" id="features">
-        <div class="section-inner">
-          <h2>What you get</h2>
-          <p class="section-lead">
-            Trivia, practice modes, and a full Bible reader. Start without an
-            account.
-          </p>
-          <ul class="feature-list">
-            <li>
-              <h3>Daily question</h3>
-              <p>
-                Answer one question each day. On Mac, set a reminder and see a dock
-                badge when today is still open.
-              </p>
-            </li>
-            <li>
-              <h3>Offline Bibles</h3>
-              <p>
-                BSB, WEB, and KJV ship inside the install, so you read with no
-                connection.
-              </p>
-            </li>
-            <li>
-              <h3>Trivia and practice</h3>
-              <p>
-                Work through a fixed question bank. Scores and answers stay on
-                disk.
-              </p>
-            </li>
-            <li>
-              <h3>Local profiles</h3>
-              <p>
-                Track XP, streaks, medals, highlights, and biblical avatars on
-                this machine.
-              </p>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <section class="again">
-        <div class="section-inner again-inner">
-          <h2>Download</h2>
-          <p>
-            Mac (Apple Silicon and Intel) and Windows installers sit on GitHub
-            Releases. Installed builds check GitHub for updates.
-          </p>
-          <div class="cta-row">
-            <a
-              class="btn btn-primary"
-              href="https://github.com/lioneltchami/Lamp-Light/releases/latest"
-              >Open latest release</a
-            >
-            <a
-              class="btn btn-ghost"
-              href="https://github.com/lioneltchami/Lamp-Light"
-              rel="noopener noreferrer"
-              target="_blank"
-              >Source on GitHub</a
-            >
-          </div>
-        </div>
-      </section>
+      </aside>
     </main>
 
-    <footer class="site-foot">
-      <div class="foot-brand">
-        <img src="/logo.png" alt="" width="28" height="28" />
-        <span>Lamp &amp; Light</span>
-      </div>
-      <p>
+    <footer class="foot-letter">
+      <p class="foot-letter__close">
+        Yours,<br />
+        <span class="foot-letter__sign">Lamp &amp; Light</span>
+      </p>
+      <p class="foot-letter__ps">
         Verse texts are public domain.
         <a
           href="https://github.com/lioneltchami/Lamp-Light/blob/main/content/LICENSES.md"
           rel="noopener noreferrer"
           target="_blank"
           >Licenses</a
+        >
+        ·
+        <a
+          href="https://github.com/lioneltchami/Lamp-Light"
+          rel="noopener noreferrer"
+          target="_blank"
+          >Source</a
         >
       </p>
     </footer>

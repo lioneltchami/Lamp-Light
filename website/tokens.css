@@ -1,0 +1,50 @@
+/* Hallmark · macrostructure: Workbench · tone: editorial · genre: editorial
+ * theme: Almanac · accent: ochre ~3% · paper: warm oat
+ * nav: N6 Newspaper masthead · footer: Ft6 Letter close
+ * enrichment: H9 lamp SVG + F4 step sequence (no product screenshots yet)
+ * inferred: audience=home Bible readers · use=download Mac/Win · tone=editorial
+ * Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4
+ */
+:root {
+  --color-paper: oklch(96.5% 0.014 78);
+  --color-paper-2: oklch(93.5% 0.016 78);
+  --color-paper-3: oklch(90% 0.018 75);
+  --color-rule: oklch(82% 0.012 75);
+  --color-muted: oklch(45% 0.02 60);
+  --color-ink: oklch(22% 0.025 55);
+  --color-ink-soft: oklch(32% 0.02 55);
+  --color-accent: oklch(52% 0.12 72);
+  --color-accent-hot: oklch(48% 0.13 65);
+  --color-focus: oklch(48% 0.14 72);
+  --color-on-accent: oklch(97% 0.01 78);
+
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-body: "Cardo", "Palatino Linotype", Palatino, serif;
+  --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.9rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: clamp(1.75rem, 3vw, 2.25rem);
+  --text-display: clamp(2.5rem, 6vw, 3.75rem);
+
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  --space-4xl: 96px;
+  --page-gutter: clamp(20px, 5vw, 56px);
+
+  --rule-hair: 1px;
+  --radius: 2px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-med: 220ms;
+}
