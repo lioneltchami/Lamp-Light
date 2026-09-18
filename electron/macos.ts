@@ -9,7 +9,7 @@ import electron from "electron";
 const { Menu, Notification, app, clipboard, shell } = electron;
 
 export const RELEASES_URL =
-	"https://github.com/cfanfelle/Bible-Trivia/releases/latest";
+	"https://github.com/lioneltchami/Lamp-Light/releases/latest";
 
 export type ReminderPrefs = {
 	enabled: boolean;

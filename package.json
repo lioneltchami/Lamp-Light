@@ -47,8 +47,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "cfanfelle",
-        "repo": "Bible-Trivia",
+        "owner": "lioneltchami",
+        "repo": "Lamp-Light",
         "releaseType": "release"
       }
     ],

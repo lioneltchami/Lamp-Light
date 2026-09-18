@@ -4,7 +4,7 @@ Offline-first Electron desktop app for Bible reading, quizzes, practice, daily q
 
 ## Download
 
-Newest Windows (`.exe`) or macOS (`.dmg`) from [GitHub Releases](https://github.com/cfanfelle/Bible-Trivia/releases/latest).  
+Newest Windows (`.exe`) or macOS (`.dmg`) from [GitHub Releases](https://github.com/lioneltchami/Lamp-Light/releases/latest).  
 Installed copies **check for updates automatically** and keep local profiles/progress.
 
 How to ship a version: see [RELEASE.md](./RELEASE.md).

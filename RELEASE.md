@@ -22,8 +22,8 @@ Push a version tag → CI builds → release assets upload → apps check and do
    git push origin v1.2.8
    ```
 5. Watch **Build desktop release** on GitHub Actions until green.
-6. Confirm [Releases](https://github.com/cfanfelle/Bible-Trivia/releases) has:
-   - Windows: `Bible-Trivia-Setup-*.exe`, `latest.yml`, `.blockmap`
+6. Confirm [Releases](https://github.com/lioneltchami/Lamp-Light/releases) has:
+   - Windows: `Lamp-Light-Setup-*.exe`, `latest.yml`, `.blockmap`
    - Mac: `*.dmg`, `*.zip` (zip is what auto-update uses), `latest-mac.yml`, `.blockmap`
 7. **Smoke update path**
    - Machine A: older installed build
