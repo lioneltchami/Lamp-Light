@@ -71,6 +71,7 @@ Without these, CI still builds unsigned installers. Signing/notarization needs:
 | `APPLE_TEAM_ID` | Mac | Team ID |
 | `WIN_CSC_LINK` | Windows | Base64 `.pfx` |
 | `WIN_CSC_KEY_PASSWORD` | Windows | Cert password |
+| `HOMEBREW_TAP_DEPLOY_KEY` | Mac | SSH deploy key (write) for `lioneltchami/homebrew-tap` — auto-bumps the cask after each release |
 
 Repo → Settings → Secrets and variables → Actions.
 
@@ -85,3 +86,9 @@ Repo → Settings → Secrets and variables → Actions.
 
 - Do not delete the previous GitHub Release if users are mid-update.
 - Prefer shipping a fixed `version+1` quickly over yanking `latest.yml`.
+
+## Homebrew tap (automatic)
+
+After a green tagged release, the **homebrew** job downloads the DMGs, computes SHA-256, and pushes an update to [`lioneltchami/homebrew-tap`](https://github.com/lioneltchami/homebrew-tap) (`Casks/lamp-light.rb`).
+
+Requires repo secret `HOMEBREW_TAP_DEPLOY_KEY` (write deploy key on the tap). No manual cask edit per release.
