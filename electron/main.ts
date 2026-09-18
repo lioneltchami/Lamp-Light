@@ -17,6 +17,7 @@ import {
 	shuffled,
 	streak,
 } from "./domain.js";
+import { isAllowedExternalUrl } from "../shared/externalLinks.js";
 import {
 	clampReminderHour,
 	configureAboutPanel,
@@ -157,6 +158,13 @@ ipcMain.handle("app:reveal-data", async () => {
 	const error = await shell.openPath(dir);
 	if (error) throw new Error(error);
 	return dir;
+});
+ipcMain.handle("app:open-external", async (_event, url: unknown) => {
+	if (typeof url !== "string" || !isAllowedExternalUrl(url)) {
+		throw new Error("That link is not allowed from the app.");
+	}
+	await shell.openExternal(url);
+	return { ok: true as const };
 });
 ipcMain.handle("app:export-backup", async () => {
 	const dataDir = app.getPath("userData");

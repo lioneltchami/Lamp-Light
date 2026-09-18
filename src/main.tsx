@@ -1,5 +1,7 @@
 import {
 	BookOpen,
+	Coffee,
+	ExternalLink,
 	CheckCircle2,
 	ChevronLeft,
 	ChevronRight,
@@ -26,7 +28,8 @@ import type {
 	Profile,
 	QuizState,
 	Verse,
-} from "../shared/types";
+} import { EXTERNAL_LINKS } from "../shared/externalLinks";
+from "../shared/types";
 import logo from "./assets/logo.png";
 import Online from "./OnlineLive";
 import {
@@ -1379,6 +1382,7 @@ const SETTINGS_SECTIONS = [
 	{ id: "settings-preferences", label: "Preferences" },
 	{ id: "settings-account", label: "Account" },
 	{ id: "settings-system", label: "System" },
+	{ id: "settings-support", label: "Support" },
 ] as const;
 
 function SettingsPage({
@@ -2050,8 +2054,79 @@ function SettingsPage({
 				</div>
 			</div>
 
+
+			<div id="settings-support" className="card settings-block">
+				<h2>Support</h2>
+				<p className="settings-copy">
+					Lamp &amp; Light is free. A coffee helps keep this desk and related
+					work going. Opens in your browser.
+				</p>
+
+				<div className="settings-subblock">
+					<h3>Donate</h3>
+					<div className="settings-row">
+						<button
+							className="secondary"
+							type="button"
+							onClick={() =>
+								void run(async () => {
+									await api("app:open-external", EXTERNAL_LINKS.coffee);
+								})
+							}
+						>
+							<Coffee size={16} /> Buy a coffee
+						</button>
+						<button
+							className="secondary"
+							type="button"
+							onClick={() =>
+								void run(async () => {
+									await api("app:open-external", EXTERNAL_LINKS.supportMore);
+								})
+							}
+						>
+							<ExternalLink size={16} /> More ways to support
+						</button>
+					</div>
+				</div>
+
+				<div className="settings-subblock">
+					<h3>Also from this desk</h3>
+					<p className="settings-copy">
+						Apologia Library — Christian apologetics articles and tools. Source
+						library for the Apologia Defense app.
+					</p>
+					<div className="settings-row">
+						<button
+							className="secondary"
+							type="button"
+							onClick={() =>
+								void run(async () => {
+									await api(
+										"app:open-external",
+										EXTERNAL_LINKS.apologiaLibrary,
+									);
+								})
+							}
+						>
+							<ExternalLink size={16} /> Open Apologia Library
+						</button>
+						<button
+							className="secondary"
+							type="button"
+							onClick={() =>
+								void run(async () => {
+									await api("app:open-external", EXTERNAL_LINKS.site);
+								})
+							}
+						>
+							<ExternalLink size={16} /> Lamp &amp; Light website
+						</button>
+					</div>
+				</div>
+			</div>
+
 			<p className="settings-meta">
-				Version {boot.appVersion}
 				{boot.bankVersion ? ` · question bank ${boot.bankVersion}` : ""}
 			</p>
 		</section>
