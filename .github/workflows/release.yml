@@ -279,3 +279,31 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  homebrew:
+    needs: [release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Update Homebrew tap cask
+        env:
+          HOMEBREW_TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HOMEBREW_TAP_DEPLOY_KEY:-}" ]; then
+            echo "HOMEBREW_TAP_DEPLOY_KEY missing — skip Homebrew tap update"
+            exit 0
+          fi
+          VERSION="${GITHUB_REF_NAME#v}"
+          TMP="$(mktemp -d)"
+          curl -fsSL -o "$TMP/Lamp-Light-arm64.dmg" \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/Lamp-Light-arm64.dmg"
+          curl -fsSL -o "$TMP/Lamp-Light-x64.dmg" \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/Lamp-Light-x64.dmg"
+          ARM_SHA="$(sha256sum "$TMP/Lamp-Light-arm64.dmg" | awk '{print $1}')"
+          INTEL_SHA="$(sha256sum "$TMP/Lamp-Light-x64.dmg" | awk '{print $1}')"
+          echo "arm64=$ARM_SHA"
+          echo "intel=$INTEL_SHA"
+          bash scripts/update-homebrew-cask.sh "$VERSION" "$ARM_SHA" "$INTEL_SHA"
