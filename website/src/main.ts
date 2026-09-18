@@ -19,3 +19,22 @@ if (features.length && "IntersectionObserver" in window) {
 } else {
   features.forEach((el) => el.classList.add("is-in"));
 }
+
+// Prefer the visitor's OS as the primary download button.
+const row = document.querySelector(".cta-row");
+const mac = document.querySelector<HTMLElement>('[data-platform="mac"]');
+const win = document.querySelector<HTMLElement>('[data-platform="win"]');
+if (row && mac && win) {
+  const ua = navigator.userAgent;
+  const isMac = /Mac|iPhone|iPad|iPod/.test(ua);
+  const isWin = /Windows/.test(ua);
+  if (isWin) {
+    win.classList.add("btn-primary");
+    win.classList.remove("btn-secondary");
+    mac.classList.add("btn-secondary");
+    mac.classList.remove("btn-primary");
+    row.prepend(win);
+  } else if (isMac) {
+    row.prepend(mac);
+  }
+}
