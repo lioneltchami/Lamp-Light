@@ -67,6 +67,16 @@ git pull
 git push -u origin HEAD   # tracks dev; never push to main
 ```
 
+## Website
+
+Marketing site lives in [`website/`](./website/) (Vite + Netlify).
+
+```bash
+cd website && npm install && npm run dev
+```
+
+Deploy: Netlify base directory `website`. Download buttons point at [GitHub Releases](https://github.com/lioneltchami/Lamp-Light/releases/latest).
+
 ## Develop
 
 
