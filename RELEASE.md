@@ -18,8 +18,8 @@ Optional: `feature/…` → PR → `dev` when work is large or parallel. Otherwi
 ## Before every release
 
 1. **Land product work on `dev`**, CI green.
-2. **Bump `package.json` `version` on `dev`** (e.g. `1.2.12` → `1.2.13`).  
-   Tag **must** match: `v1.2.13` ↔ `"version": "1.2.13"`.
+2. **Bump `package.json` `version` on `dev`** (e.g. `1.2.12` → `1.2.14`).  
+   Tag **must** match: `v1.2.14` ↔ `"version": "1.2.14"`.
 3. **Open PR `dev` → `main`**, wait for CI, merge (squash or merge commit — either is fine).
 4. **Tag the commit that is now on `main`** (no direct push of commits to `main`):
 
@@ -27,14 +27,14 @@ Optional: `feature/…` → PR → `dev` when work is large or parallel. Otherwi
    git fetch origin
    git checkout main
    git pull --ff-only origin main
-   git tag v1.2.13
-   git push origin v1.2.13
+   git tag v1.2.14
+   git push origin v1.2.14
    git checkout dev
    ```
 
 5. Watch **Build desktop release** until green. The workflow refuses tags that are not on `main`.
 6. Confirm [Releases](https://github.com/lioneltchami/Lamp-Light/releases) has:
-   - Windows: `Lamp-Light-Setup-*.exe`, `latest.yml`, `.blockmap`
+   - Windows: `Lamp-Light-Setup.exe`, `latest.yml`, `.blockmap`
    - Mac: `*.dmg`, `*.zip` (zip is what auto-update uses), `latest-mac.yml`, `.blockmap`
 7. **Smoke update path** on an older installed build.
 

@@ -360,6 +360,22 @@ a:focus-visible,
   gap: var(--space-lg);
 }
 
+
+.download-bar__alt {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+
+.download-bar__alt a {
+  color: var(--color-ink-soft);
+  text-underline-offset: 0.2em;
+}
+
+.download-bar__alt a:hover {
+  color: var(--color-ink);
+}
+
 .download-bar__copy {
   margin: 0;
   max-width: 48ch;
