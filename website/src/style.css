@@ -181,26 +181,27 @@ a:focus-visible,
   justify-self: center;
 }
 
-.lamp {
-  width: min(220px, 55vw);
+.lamp-photo {
+  width: min(320px, 70vw);
   height: auto;
+  border-radius: var(--radius);
+  border: var(--rule-hair) solid var(--color-rule);
+  background: var(--color-paper-2);
+  object-fit: cover;
+  aspect-ratio: 4 / 5;
 }
 
-.lamp-glow {
-  fill: color-mix(in oklch, var(--color-accent) 22%, transparent);
+.photo-credit {
+  margin: var(--space-xs) 0 0;
+  font-family: var(--font-outlier);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  text-align: center;
 }
-
-.lamp-shade {
-  fill: var(--color-accent);
-}
-
-.lamp-neck,
-.lamp-base {
-  fill: var(--color-ink);
-}
-
-.lamp-knob {
-  fill: var(--color-ink-soft);
+.photo-credit a {
+  color: inherit;
 }
 
 /* Workbench + F4 */
