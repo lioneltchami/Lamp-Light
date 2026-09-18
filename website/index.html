@@ -37,6 +37,7 @@
           <li><a href="#tour">Tour</a></li>
           <li><a href="#upcoming">Coming</a></li>
           <li><a href="#download">Download</a></li>
+          <li><a href="#homebrew">Homebrew</a></li>
           <li>
             <a
               href="https://github.com/lioneltchami/Lamp-Light"
@@ -183,7 +184,8 @@
           <p class="download-bar__copy">
             Click once — the installer starts downloading. Apple Silicon is the
             default Mac build; Intel Macs use the link under the buttons.
-            Installed builds check for updates.
+            Installed builds check for updates. Homebrew stays in sync with
+            each release.
           </p>
           <div class="cta-row">
             <a
@@ -205,12 +207,15 @@
               href="https://github.com/lioneltchami/Lamp-Light/releases/latest/download/Lamp-Light-x64.dmg"
               >Intel Mac instead</a
             >
-            ·
-            <span class="download-bar__brew"
-              >or <code>brew install --cask lamp-light</code> after
-              <code>brew tap lioneltchami/tap</code></span
-            >
           </p>
+          <div class="brew-block" id="homebrew">
+            <h2 class="brew-block__title">Homebrew</h2>
+            <p class="brew-block__lead">
+              Mac only. Same notarized build as the download button.
+            </p>
+            <pre class="brew-block__code"><code>brew tap lioneltchami/tap
+brew install --cask lamp-light</code></pre>
+          </div>
         </div>
       </aside>
     </main>
