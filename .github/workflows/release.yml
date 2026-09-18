@@ -13,7 +13,28 @@ env:
   EB_OUTPUT: release
 
 jobs:
+  # Tags must land on main (never cut a release from an unmerged dev tip).
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure tag commit is on main
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag $GITHUB_REF_NAME is not on main."
+            echo "Merge a PR from dev → main, then tag that merge commit."
+            exit 1
+          fi
+          echo "OK: $GITHUB_SHA is on origin/main"
+
   windows:
+    needs: [guard]
     runs-on: windows-latest
     steps:
       - name: Check out source
@@ -90,6 +111,7 @@ jobs:
           if-no-files-found: error
 
   macos:
+    needs: [guard]
     runs-on: macos-latest
     steps:
       - name: Check out source

@@ -36,7 +36,39 @@ Grab the latest installer from **[Releases](https://github.com/lioneltchami/Lamp
 
 Installed apps **auto-update** and keep your local profiles and progress. Shipping a new version: [RELEASE.md](./RELEASE.md).
 
+## Branching (required)
+
+| Branch | Role |
+| --- | --- |
+| **`dev`** | Default. All day-to-day commits and pushes land here. |
+| **`main`** | Protected. Only via PR from `dev`. Tagged releases come from here. |
+| **`feature/*`** | Optional. Use for parallel or risky work, then PR into `dev`. |
+
+**Best default for this repo:** push straight to **`dev`**. Feature branches are optional — use them when you want an isolated review or two things in flight. You do **not** need feature → `dev` → `main` for every small change.
+
+Flow:
+
+```text
+you → push to dev  →  CI
+         ↓
+   PR: dev → main  →  CI (required)
+         ↓
+   merge to main
+         ↓
+   tag vX.Y.Z on main  →  Mac/Win release build + GitHub Release
+```
+
+Direct pushes to `main` are blocked (GitHub rules + local `.githooks/pre-push`). After `npm install`, hooks path is set automatically.
+
+```bash
+git checkout dev
+git pull
+# …work…
+git push -u origin HEAD   # tracks dev; never push to main
+```
+
 ## Develop
+
 
 ```bash
 npm install
