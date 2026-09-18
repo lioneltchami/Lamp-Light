@@ -141,30 +141,63 @@ jobs:
       - name: Typecheck
         run: npm run check
 
+      - name: Install Developer ID certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.MAC_CSC_LINK }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CERTIFICATE_BASE64:-}" ] || [ -z "${CERTIFICATE_PASSWORD:-}" ] || [ -z "${KEYCHAIN_PASSWORD:-}" ]; then
+            echo "Signing secrets missing — Mac build will be unsigned."
+            echo "SKIP_SIGNING=1" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          CERTIFICATE_PATH="$RUNNER_TEMP/developer-id.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/lamp-light-signing.keychain-db"
+          printf '%s' "$CERTIFICATE_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" \
+            -P "$CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed s/\"//g)
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+          rm -f "$CERTIFICATE_PATH"
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+          echo "SKIP_SIGNING=0" >> "$GITHUB_ENV"
+
       - name: Build macOS release files
         run: |
           set -euo pipefail
           npm run build
           test -f dist-electron/electron/main.js
           test -f dist-electron/electron/macos.js
-          # Missing secrets become empty env vars; electron-builder treats empty
-          # CSC_LINK as a cert path and fails with "<cwd> not a file".
-          if [ -z "${CSC_LINK:-}" ]; then
-            unset CSC_LINK CSC_KEY_PASSWORD
+          # Prefer identity already imported into the runner keychain.
+          # Do not set CSC_LINK here — electron-builder's temp-keychain path
+          # fails on GHA with set-key-partition-list.
+          unset CSC_LINK CSC_KEY_PASSWORD || true
+          if [ "${SKIP_SIGNING:-1}" = "1" ]; then
             export CSC_IDENTITY_AUTO_DISCOVERY=false
-          fi
-          # Notarize when Apple secrets are present (Gatekeeper-friendly).
-          # Avoid empty-array expand under `set -u` (macOS bash treats EXTRA[@] as unbound).
-          if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
-            echo "Apple notarization credentials detected — enabling mac.notarize"
-            npx electron-builder --mac --x64 --arm64 --publish never -c.mac.notarize=true
-          else
             echo "Apple notarization secrets missing — shipping unsigned/notarize-skipped build"
             npx electron-builder --mac --x64 --arm64 --publish never
+          else
+            export CSC_IDENTITY_AUTO_DISCOVERY=true
+            export CSC_NAME="Developer ID Application: Lionel Tchami Nfada (UD43QCFHR4)"
+            if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
+              echo "Apple notarization credentials detected — enabling mac.notarize"
+              npx electron-builder --mac --x64 --arm64 --publish never -c.mac.notarize=true
+            else
+              echo "Signing only — notarization secrets incomplete"
+              npx electron-builder --mac --x64 --arm64 --publish never
+            fi
           fi
         env:
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
