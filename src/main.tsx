@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { EXTERNAL_LINKS } from "../shared/externalLinks";
 import type {
 	Book,
 	Bootstrap,
@@ -28,8 +29,7 @@ import type {
 	Profile,
 	QuizState,
 	Verse,
-} import { EXTERNAL_LINKS } from "../shared/externalLinks";
-from "../shared/types";
+} from "../shared/types";
 import logo from "./assets/logo.png";
 import Online from "./OnlineLive";
 import {
