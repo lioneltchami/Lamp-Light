@@ -30,6 +30,32 @@ function findInfoPlist(root) {
   return null;
 }
 
+function normalizeAsarPath(p) {
+  return String(p).replace(/\\/g, "/").replace(/^\//, "");
+}
+
+function listAsarFiles(asarPath) {
+  return asar.listPackage(asarPath).map(normalizeAsarPath);
+}
+
+function readAsarFile(asarPath, relativePath, files) {
+  const wanted = normalizeAsarPath(relativePath);
+  const match =
+    files.find((f) => f === wanted) ||
+    files.find((f) => f.endsWith("/" + wanted)) ||
+    files.find((f) => f.endsWith(wanted));
+  if (!match) {
+    const hint = files
+      .filter((f) => f.includes(path.posix.basename(wanted)))
+      .slice(0, 20);
+    throw new Error(
+      `"${wanted}" was not found in this archive` +
+        (hint.length ? `\nSimilar entries:\n  - ${hint.join("\n  - ")}` : ""),
+    );
+  }
+  return asar.extractFile(asarPath, match).toString("utf8");
+}
+
 function mustInclude(haystack, needle, label) {
   if (!haystack.includes(needle)) {
     console.error(`FAIL: ${label} missing ${JSON.stringify(needle)}`);
@@ -40,7 +66,7 @@ function mustInclude(haystack, needle, label) {
 const root = process.argv[2];
 if (!root) {
   console.error(
-    'Usage: node scripts/verify-packaged-app.mjs <app-or-resources-dir>',
+    "Usage: node scripts/verify-packaged-app.mjs <app-or-resources-dir>",
   );
   process.exit(2);
 }
@@ -58,9 +84,24 @@ if (size > MAX_ASAR_BYTES) {
   process.exit(1);
 }
 
-const preload = asar.extractFile(asarPath, "electron/preload.cjs").toString("utf8");
+const files = listAsarFiles(asarPath);
+const electronFiles = files.filter((f) => f.startsWith("dist-electron/"));
+if (!electronFiles.length) {
+  console.error(
+    "FAIL: dist-electron/* missing from asar. electron-builder likely skipped gitignored build output.",
+  );
+  console.error(
+    "Sample asar entries:",
+    files.filter((f) => !f.startsWith("node_modules/")).slice(0, 40),
+  );
+  process.exit(1);
+}
+
+const preload = readAsarFile(asarPath, "electron/preload.cjs", files);
 if (!preload.startsWith("const { contextBridge")) {
-  console.error("FAIL: electron/preload.cjs inside asar is corrupted or wrong file.");
+  console.error(
+    "FAIL: electron/preload.cjs inside asar is corrupted or wrong file.",
+  );
   console.error("First bytes:", Buffer.from(preload).subarray(0, 40));
   process.exit(1);
 }
@@ -69,18 +110,16 @@ mustInclude(preload, "onShareVotd", "preload.cjs");
 mustInclude(preload, "app:navigate", "preload.cjs");
 mustInclude(preload, "app:share-votd", "preload.cjs");
 
-const html = asar.extractFile(asarPath, "dist/index.html").toString("utf8");
+const html = readAsarFile(asarPath, "dist/index.html", files);
 if (!html.includes("<!doctype html") && !html.includes("<!DOCTYPE html")) {
   console.error("FAIL: dist/index.html missing or invalid inside asar.");
   process.exit(1);
 }
 
-const main = asar
-  .extractFile(asarPath, "dist-electron/electron/main.js")
-  .toString("utf8");
+const main = readAsarFile(asarPath, "dist-electron/electron/main.js", files);
 mustInclude(main, "whenReady", "main.js");
 mustInclude(main, "createMainWindow", "main.js");
-mustInclude(main, 'profile:custom-avatar', "main.js");
+mustInclude(main, "profile:custom-avatar", "main.js");
 mustInclude(main, "custom_avatar_path", "main.js");
 mustInclude(main, "reminder:get", "main.js");
 mustInclude(main, "reminder:set", "main.js");
@@ -89,22 +128,20 @@ mustInclude(main, "installApplicationMenu", "main.js");
 mustInclude(main, "syncDockBadge", "main.js");
 mustInclude(main, 'app.on("activate"', "main.js");
 
-const macos = asar
-  .extractFile(asarPath, "dist-electron/electron/macos.js")
-  .toString("utf8");
+const macos = readAsarFile(asarPath, "dist-electron/electron/macos.js", files);
 mustInclude(macos, "configureAboutPanel", "macos.js");
 mustInclude(macos, "refreshDockBadge", "macos.js");
 mustInclude(macos, "showDailyReminderNotification", "macos.js");
 mustInclude(macos, "badgeForDailyUnanswered", "macos.js");
 
-const migrations = asar
-  .extractFile(asarPath, "dist-electron/electron/migrations.js")
-  .toString("utf8");
+const migrations = readAsarFile(
+  asarPath,
+  "dist-electron/electron/migrations.js",
+  files,
+);
 mustInclude(migrations, "custom_avatar_path", "migrations.js");
 
-const pkg = JSON.parse(
-  asar.extractFile(asarPath, "package.json").toString("utf8"),
-);
+const pkg = JSON.parse(readAsarFile(asarPath, "package.json", files));
 if (pkg.name !== "lamp-light") {
   console.error(`FAIL: package.json name is ${pkg.name}, expected lamp-light`);
   process.exit(1);

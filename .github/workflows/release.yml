@@ -47,7 +47,10 @@ jobs:
 
       - name: Build Windows release files
         run: |
+          set -euo pipefail
           npm run build
+          test -f dist-electron/electron/main.js
+          test -f dist-electron/electron/macos.js
           npx electron-builder --win --publish never
         env:
           # Optional: base64 .pfx for SmartScreen-friendly updates.
@@ -113,16 +116,17 @@ jobs:
         run: |
           set -euo pipefail
           npm run build
+          test -f dist-electron/electron/main.js
+          test -f dist-electron/electron/macos.js
           # Notarize when Apple secrets are present (Gatekeeper-friendly).
-          # Local/unsigned CI still builds without them.
-          EXTRA=()
+          # Avoid empty-array expand under `set -u` (macOS bash treats EXTRA[@] as unbound).
           if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
             echo "Apple notarization credentials detected — enabling mac.notarize"
-            EXTRA+=(-c.mac.notarize=true)
+            npx electron-builder --mac --x64 --arm64 --publish never -c.mac.notarize=true
           else
             echo "Apple notarization secrets missing — shipping unsigned/notarize-skipped build"
+            npx electron-builder --mac --x64 --arm64 --publish never
           fi
-          npx electron-builder --mac --x64 --arm64 --publish never "${EXTRA[@]}"
         env:
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}

@@ -1,7 +1,7 @@
 {
   "name": "lamp-light",
-  "version": "1.2.8",
-  "description": "Lamp & Light — offline-first Bible trivia, reading, and practice",
+  "version": "1.2.9",
+  "description": "Lamp & Light \u2014 offline-first Bible trivia, reading, and practice",
   "author": "Lamp & Light",
   "main": "dist-electron/electron/main.js",
   "type": "module",
@@ -56,11 +56,24 @@
       "**/*.node"
     ],
     "files": [
-      "dist/index.html",
-      "dist/assets/**/*",
-      "dist-electron/**/*",
+      "package.json",
       "electron/preload.cjs",
-      "package.json"
+      {
+        "from": "dist",
+        "to": "dist",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "dist-electron",
+        "to": "dist-electron",
+        "filter": [
+          "**/*",
+          "!**/*.test.js",
+          "!**/*.map"
+        ]
+      }
     ],
     "extraResources": [
       {
@@ -89,7 +102,7 @@
       "category": "public.app-category.education",
       "artifactName": "Lamp-Light-${version}-${arch}.${ext}",
       "extendInfo": {
-        "NSUserNotificationUsageDescription": "Lamp & Light can remind you about today’s daily question."
+        "NSUserNotificationUsageDescription": "Lamp & Light can remind you about today\u2019s daily question."
       },
       "target": [
         {
