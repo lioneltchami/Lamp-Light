@@ -1,6 +1,8 @@
-const features = document.querySelectorAll<HTMLElement>(".feature-list li");
+const reveal = document.querySelectorAll<HTMLElement>(
+  ".step, .hero-copy, .lamp-figure",
+);
 
-if (features.length && "IntersectionObserver" in window) {
+if (reveal.length && "IntersectionObserver" in window) {
   const io = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
@@ -10,17 +12,16 @@ if (features.length && "IntersectionObserver" in window) {
         }
       }
     },
-    { threshold: 0.2, rootMargin: "0px 0px -40px 0px" },
+    { threshold: 0.15, rootMargin: "0px 0px -24px 0px" },
   );
-  features.forEach((el, i) => {
-    el.style.transitionDelay = `${i * 60}ms`;
+  reveal.forEach((el, i) => {
+    el.style.transitionDelay = `${Math.min(i, 4) * 50}ms`;
     io.observe(el);
   });
 } else {
-  features.forEach((el) => el.classList.add("is-in"));
+  reveal.forEach((el) => el.classList.add("is-in"));
 }
 
-// Prefer the visitor's OS as the primary download button.
 const row = document.querySelector(".cta-row");
 const mac = document.querySelector<HTMLElement>('[data-platform="mac"]');
 const win = document.querySelector<HTMLElement>('[data-platform="win"]');
