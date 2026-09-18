@@ -35,17 +35,19 @@ function normalizeAsarPath(p) {
 }
 
 function listAsarFiles(asarPath) {
-  return asar.listPackage(asarPath).map(normalizeAsarPath);
+  // Keep platform-native asar paths for extractFile; normalize only when matching.
+  return asar.listPackage(asarPath);
 }
 
 function readAsarFile(asarPath, relativePath, files) {
   const wanted = normalizeAsarPath(relativePath);
   const match =
-    files.find((f) => f === wanted) ||
-    files.find((f) => f.endsWith("/" + wanted)) ||
-    files.find((f) => f.endsWith(wanted));
+    files.find((f) => normalizeAsarPath(f) === wanted) ||
+    files.find((f) => normalizeAsarPath(f).endsWith("/" + wanted)) ||
+    files.find((f) => normalizeAsarPath(f).endsWith(wanted));
   if (!match) {
     const hint = files
+      .map(normalizeAsarPath)
       .filter((f) => f.includes(path.posix.basename(wanted)))
       .slice(0, 20);
     throw new Error(
@@ -53,6 +55,7 @@ function readAsarFile(asarPath, relativePath, files) {
         (hint.length ? `\nSimilar entries:\n  - ${hint.join("\n  - ")}` : ""),
     );
   }
+  // extractFile needs the archive's native entry path (Windows may use backslashes).
   return asar.extractFile(asarPath, match).toString("utf8");
 }
 
@@ -85,7 +88,9 @@ if (size > MAX_ASAR_BYTES) {
 }
 
 const files = listAsarFiles(asarPath);
-const electronFiles = files.filter((f) => f.startsWith("dist-electron/"));
+const electronFiles = files.filter((f) =>
+  normalizeAsarPath(f).startsWith("dist-electron/"),
+);
 if (!electronFiles.length) {
   console.error(
     "FAIL: dist-electron/* missing from asar. electron-builder likely skipped gitignored build output.",
