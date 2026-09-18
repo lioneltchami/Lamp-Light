@@ -46,11 +46,18 @@ jobs:
         run: npm run check
 
       - name: Build Windows release files
+        shell: bash
         run: |
           set -euo pipefail
           npm run build
           test -f dist-electron/electron/main.js
           test -f dist-electron/electron/macos.js
+          # Missing secrets become empty env vars; electron-builder treats empty
+          # CSC_LINK as a cert path and fails with "<cwd> not a file".
+          if [ -z "${CSC_LINK:-}" ]; then
+            unset CSC_LINK CSC_KEY_PASSWORD WIN_CSC_LINK WIN_CSC_KEY_PASSWORD
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
           npx electron-builder --win --publish never
         env:
           # Optional: base64 .pfx for SmartScreen-friendly updates.
@@ -118,6 +125,12 @@ jobs:
           npm run build
           test -f dist-electron/electron/main.js
           test -f dist-electron/electron/macos.js
+          # Missing secrets become empty env vars; electron-builder treats empty
+          # CSC_LINK as a cert path and fails with "<cwd> not a file".
+          if [ -z "${CSC_LINK:-}" ]; then
+            unset CSC_LINK CSC_KEY_PASSWORD
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
           # Notarize when Apple secrets are present (Gatekeeper-friendly).
           # Avoid empty-array expand under `set -u` (macOS bash treats EXTRA[@] as unbound).
           if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
