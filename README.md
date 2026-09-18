@@ -34,7 +34,17 @@ Direct installer links (also on the [site](https://lamp-and-light.netlify.app/#d
 | macOS (Apple Silicon) | [`Lamp-Light-arm64.dmg`](https://github.com/lioneltchami/Lamp-Light/releases/latest/download/Lamp-Light-arm64.dmg) |
 | macOS (Intel) | [`Lamp-Light-x64.dmg`](https://github.com/lioneltchami/Lamp-Light/releases/latest/download/Lamp-Light-x64.dmg) |
 
-Installed apps **auto-update** and keep your local profiles and progress. Shipping a new version: [RELEASE.md](./RELEASE.md).
+Installed apps **auto-update** and keep your local profiles and progress.
+
+### Homebrew (Mac)
+
+```bash
+brew tap lioneltchami/tap
+brew install --cask lamp-light
+```
+
+Tap: [lioneltchami/homebrew-tap](https://github.com/lioneltchami/homebrew-tap).
+ Shipping a new version: [RELEASE.md](./RELEASE.md).
 
 ## Branching (required)
 
