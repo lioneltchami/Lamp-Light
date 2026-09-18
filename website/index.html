@@ -35,6 +35,7 @@
       <nav class="mast-nav" aria-label="Primary">
         <ul>
           <li><a href="#tour">Tour</a></li>
+          <li><a href="#upcoming">Coming</a></li>
           <li><a href="#download">Download</a></li>
           <li>
             <a
@@ -82,7 +83,7 @@
       <section class="workbench" id="tour">
         <header class="workbench-head">
           <h2>How you use it</h2>
-          <p>Three moments inside the desktop app.</p>
+          <p>Four moments inside the desktop app.</p>
         </header>
 
         <ol class="steps">
@@ -134,29 +135,77 @@
               </figure>
             </div>
           </li>
+          <li class="step">
+            <span class="stage">4.0</span>
+            <div class="step-body">
+              <h3>Play with friends online</h3>
+              <p>
+                Sign in from the desktop app to add friends and run live trivia
+                against each other. Study and reading still work with no
+                account.
+              </p>
+              <figure class="panel">
+                <p class="panel-label">Online</p>
+                <p class="panel-sample">
+                  Friends · live games · optional sign-in
+                </p>
+              </figure>
+            </div>
+          </li>
         </ol>
+      </section>
+
+      <section class="upcoming" id="upcoming" aria-labelledby="upcoming-title">
+        <div class="upcoming-inner">
+          <h2 id="upcoming-title">Coming next</h2>
+          <p class="upcoming-lead">
+            Small list. We ship the desktop app first; these follow.
+          </p>
+          <ul class="upcoming-list">
+            <li>
+              <span class="upcoming-label">Web app</span>
+              <span class="upcoming-note"
+                >Full Lamp &amp; Light in the browser, not only the download.</span
+              >
+            </li>
+            <li>
+              <span class="upcoming-label">Mobile clients</span>
+              <span class="upcoming-note"
+                >Same online play path on phones, beside the desktop build.</span
+              >
+            </li>
+          </ul>
+        </div>
       </section>
 
       <aside class="download-bar" id="download">
         <div class="download-bar__inner">
           <p class="download-bar__copy">
-            Mac (Apple Silicon and Intel) and Windows installers are on GitHub
-            Releases. Installed builds check for updates.
+            Click once — the installer starts downloading. Apple Silicon is the
+            default Mac build; Intel Macs use the link under the buttons.
+            Installed builds check for updates.
           </p>
           <div class="cta-row">
             <a
               class="btn btn-primary"
               data-platform="mac"
-              href="https://github.com/lioneltchami/Lamp-Light/releases/latest"
+              href="https://github.com/lioneltchami/Lamp-Light/releases/latest/download/Lamp-Light-arm64.dmg"
               >Download for Mac</a
             >
             <a
               class="btn btn-secondary"
               data-platform="win"
-              href="https://github.com/lioneltchami/Lamp-Light/releases/latest"
+              href="https://github.com/lioneltchami/Lamp-Light/releases/latest/download/Lamp-Light-Setup.exe"
               >Download for Windows</a
             >
           </div>
+          <p class="download-bar__alt">
+            <a
+              data-platform="mac-intel"
+              href="https://github.com/lioneltchami/Lamp-Light/releases/latest/download/Lamp-Light-x64.dmg"
+              >Intel Mac instead</a
+            >
+          </p>
         </div>
       </aside>
     </main>

@@ -97,16 +97,16 @@ jobs:
             exit 1
           fi
           node scripts/verify-packaged-app.mjs "$RESOURCES"
-          # Artifact naming must match package.json win.artifactName (Lamp-Light-Setup-*).
-          ls -la release/Lamp-Light-Setup-*.exe release/latest.yml
+          # Stable names → site deep-links /releases/latest/download/…
+          ls -la release/Lamp-Light-Setup.exe release/latest.yml
 
       - name: Upload Windows assets
         uses: actions/upload-artifact@v4
         with:
           name: windows-release
           path: |
-            release/Lamp-Light-Setup-*.exe
-            release/Lamp-Light-Setup-*.exe.blockmap
+            release/Lamp-Light-Setup.exe
+            release/Lamp-Light-Setup.exe.blockmap
             release/latest.yml
           if-no-files-found: error
 
@@ -174,9 +174,9 @@ jobs:
           set -euo pipefail
           node scripts/verify-packaged-app.mjs "release/mac-arm64/Lamp Light.app"
           node scripts/verify-packaged-app.mjs "release/mac/Lamp Light.app"
-          # Artifact naming must match package.json mac.artifactName (Lamp-Light-*-arch.*).
-          ls -la release/Lamp-Light-*-arm64.dmg release/Lamp-Light-*-x64.dmg
-          ls -la release/Lamp-Light-*-arm64.zip release/Lamp-Light-*-x64.zip
+          # Stable names → site deep-links /releases/latest/download/…
+          ls -la release/Lamp-Light-arm64.dmg release/Lamp-Light-x64.dmg
+          ls -la release/Lamp-Light-arm64.zip release/Lamp-Light-x64.zip
           ls -la release/latest-mac.yml
 
       - name: Upload macOS assets
@@ -184,10 +184,14 @@ jobs:
         with:
           name: macos-release
           path: |
-            release/Lamp-Light-*.dmg
-            release/Lamp-Light-*.dmg.blockmap
-            release/Lamp-Light-*.zip
-            release/Lamp-Light-*.zip.blockmap
+            release/Lamp-Light-arm64.dmg
+            release/Lamp-Light-arm64.dmg.blockmap
+            release/Lamp-Light-x64.dmg
+            release/Lamp-Light-x64.dmg.blockmap
+            release/Lamp-Light-arm64.zip
+            release/Lamp-Light-arm64.zip.blockmap
+            release/Lamp-Light-x64.zip
+            release/Lamp-Light-x64.zip.blockmap
             release/latest-mac.yml
           if-no-files-found: error
 
@@ -208,11 +212,11 @@ jobs:
           # electron-updater + installers expected on every release.
           test -f release-assets/latest.yml
           test -f release-assets/latest-mac.yml
-          ls release-assets/Lamp-Light-Setup-*.exe >/dev/null
-          ls release-assets/Lamp-Light-*-arm64.dmg >/dev/null
-          ls release-assets/Lamp-Light-*-x64.dmg >/dev/null
-          ls release-assets/Lamp-Light-*-arm64.zip >/dev/null
-          ls release-assets/Lamp-Light-*-x64.zip >/dev/null
+          ls release-assets/Lamp-Light-Setup.exe >/dev/null
+          ls release-assets/Lamp-Light-arm64.dmg >/dev/null
+          ls release-assets/Lamp-Light-x64.dmg >/dev/null
+          ls release-assets/Lamp-Light-arm64.zip >/dev/null
+          ls release-assets/Lamp-Light-x64.zip >/dev/null
 
       - name: Publish GitHub release
         run: |
