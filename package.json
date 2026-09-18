@@ -1,6 +1,6 @@
 {
   "name": "lamp-light",
-  "version": "1.2.11",
+  "version": "1.2.12",
   "description": "Lamp & Light — offline-first Bible trivia, reading, and practice",
   "author": "Lamp & Light",
   "main": "dist-electron/electron/main.js",

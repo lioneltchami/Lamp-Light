@@ -35,16 +35,33 @@ function normalizeAsarPath(p) {
 }
 
 function listAsarFiles(asarPath) {
-  // Keep platform-native asar paths for extractFile; normalize only when matching.
   return asar.listPackage(asarPath);
+}
+
+function extractAsarFile(asarPath, posixPath) {
+  // listPackage may prefix "/" or "\\"; extractFile wants unprefixed + OS separators.
+  const candidates = [
+    posixPath,
+    posixPath.replace(/\//g, "\\"),
+    "/" + posixPath,
+    "\\" + posixPath.replace(/\//g, "\\"),
+  ];
+  let lastErr;
+  for (const candidate of candidates) {
+    try {
+      return asar.extractFile(asarPath, candidate);
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr instanceof Error
+    ? lastErr
+    : new Error(`extract failed for ${posixPath}`);
 }
 
 function readAsarFile(asarPath, relativePath, files) {
   const wanted = normalizeAsarPath(relativePath);
-  const match =
-    files.find((f) => normalizeAsarPath(f) === wanted) ||
-    files.find((f) => normalizeAsarPath(f).endsWith("/" + wanted)) ||
-    files.find((f) => normalizeAsarPath(f).endsWith(wanted));
+  const match = files.find((f) => normalizeAsarPath(f) === wanted);
   if (!match) {
     const hint = files
       .map(normalizeAsarPath)
@@ -55,8 +72,15 @@ function readAsarFile(asarPath, relativePath, files) {
         (hint.length ? `\nSimilar entries:\n  - ${hint.join("\n  - ")}` : ""),
     );
   }
-  // extractFile needs the archive's native entry path (Windows may use backslashes).
-  return asar.extractFile(asarPath, match).toString("utf8");
+  return extractAsarFile(asarPath, wanted).toString("utf8");
+}
+
+// ponytail: path-normalize ceiling — wrong separators break Windows extract.
+if (normalizeAsarPath("\\electron\\preload.cjs") !== "electron/preload.cjs") {
+  throw new Error("normalizeAsarPath self-check failed");
+}
+if (normalizeAsarPath("/dist-electron/electron/main.js") !== "dist-electron/electron/main.js") {
+  throw new Error("normalizeAsarPath self-check failed");
 }
 
 function mustInclude(haystack, needle, label) {
