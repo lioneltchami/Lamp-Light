@@ -26,13 +26,13 @@
 
 ## Download
 
-Grab the latest installer from **[Releases](https://github.com/lioneltchami/Lamp-Light/releases/latest)**:
+Direct installer links (also on the [site](https://lamp-and-light.netlify.app/#download)):
 
 | Platform | File |
 | --- | --- |
-| Windows | `Lamp-Light-Setup-*.exe` |
-| macOS (Apple Silicon) | `Lamp-Light-*-arm64.dmg` |
-| macOS (Intel) | `Lamp-Light-*-x64.dmg` |
+| Windows | [`Lamp-Light-Setup.exe`](https://github.com/lioneltchami/Lamp-Light/releases/latest/download/Lamp-Light-Setup.exe) |
+| macOS (Apple Silicon) | [`Lamp-Light-arm64.dmg`](https://github.com/lioneltchami/Lamp-Light/releases/latest/download/Lamp-Light-arm64.dmg) |
+| macOS (Intel) | [`Lamp-Light-x64.dmg`](https://github.com/lioneltchami/Lamp-Light/releases/latest/download/Lamp-Light-x64.dmg) |
 
 Installed apps **auto-update** and keep your local profiles and progress. Shipping a new version: [RELEASE.md](./RELEASE.md).
 
@@ -75,7 +75,7 @@ Marketing site lives in [`website/`](./website/) (Vite + Netlify).
 cd website && npm install && npm run dev
 ```
 
-Deploy: Netlify base directory `website`. Download buttons point at [GitHub Releases](https://github.com/lioneltchami/Lamp-Light/releases/latest).
+Deploy: Netlify base directory `website`. Download buttons deep-link installers via `/releases/latest/download/…` (stable artifact names).
 
 ## Develop
 
