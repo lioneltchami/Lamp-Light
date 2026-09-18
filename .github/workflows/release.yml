@@ -199,15 +199,15 @@ jobs:
           NOTES="$(cat <<EOF
           ## Lamp & Light ${GITHUB_REF_NAME#v}
 
-          Offline Bible trivia desktop build.
+          Offline-first Bible trivia, reading, and practice for your desktop.
 
-          ### Highlights in recent builds
-          - macOS menu bar, About, dock reopen, keyboard shortcuts
+          ### In this lineage
+          - macOS menu, About panel, dock reopen, keyboard shortcuts
           - Daily reminder notifications + dock badge
           - Custom profile photo + expanded biblical avatars
-          - Share Verse of the Day / Bible verses
+          - Share Verse of the Day and reader verses
 
-          Auto-update uses the \`.zip\` (Mac) and \`.exe\` (Windows) assets with \`latest-mac.yml\` / \`latest.yml\`.
+          Auto-update uses the Mac \`.zip\` / Windows \`.exe\` with \`latest-mac.yml\` / \`latest.yml\`.
           EOF
           )"
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
