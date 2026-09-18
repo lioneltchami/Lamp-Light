@@ -12,7 +12,8 @@
     "check": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "dist": "npm run build && electron-builder",
     "release": "npm run build && electron-builder --publish always",
-    "verify:packaged": "node scripts/verify-packaged-app.mjs"
+    "verify:packaged": "node scripts/verify-packaged-app.mjs",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",
