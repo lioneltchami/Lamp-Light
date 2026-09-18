@@ -1,0 +1,33 @@
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.theme-toggle button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 999px;
+  width: 34px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.theme-toggle button:hover {
+  color: var(--ink);
+}
+.theme-toggle button.active {
+  background: var(--surface-2);
+  color: var(--green);
+}
+.theme-toggle.gate-theme {
+  margin: 0 auto 18px;
+}
+.app-header .theme-cycle {
+  flex-shrink: 0;
+}

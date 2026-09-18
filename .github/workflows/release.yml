@@ -3,10 +3,14 @@ name: Build desktop release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
+
+env:
+  # electron-builder writes installers here (not dist/ — dist is Vite output only).
+  EB_OUTPUT: release
 
 jobs:
   windows:
@@ -14,27 +18,65 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify tag matches package.json version
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "Tag version ($TAG) must match package.json version ($PKG)."
+            echo "Bump package.json, commit, then tag v\$PKG."
+            exit 1
+          fi
+
       - name: Test
         run: npm test
+
+      - name: Typecheck
+        run: npm run check
+
       - name: Build Windows release files
         run: |
           npm run build
           npx electron-builder --win --publish never
+        env:
+          # Optional: base64 .pfx for SmartScreen-friendly updates.
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
+      - name: Verify packaged Windows asar
+        shell: bash
+        run: |
+          RESOURCES="$(find release/win-unpacked -type d -name resources | head -1)"
+          if [ -z "$RESOURCES" ]; then
+            echo "win-unpacked resources not found"
+            ls -la release || true
+            exit 1
+          fi
+          node scripts/verify-packaged-app.mjs "$RESOURCES"
+          # Artifact naming must match package.json win.artifactName (Lamp-Light-Setup-*).
+          ls -la release/Lamp-Light-Setup-*.exe release/latest.yml
+
       - name: Upload Windows assets
         uses: actions/upload-artifact@v4
         with:
           name: windows-release
           path: |
-            dist/*.exe
-            dist/*.exe.blockmap
-            dist/latest.yml
+            release/Lamp-Light-Setup-*.exe
+            release/Lamp-Light-Setup-*.exe.blockmap
+            release/latest.yml
           if-no-files-found: error
 
   macos:
@@ -42,29 +84,72 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify tag matches package.json version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "Tag version ($TAG) must match package.json version ($PKG)."
+            exit 1
+          fi
+
       - name: Test
         run: npm test
+
+      - name: Typecheck
+        run: npm run check
+
       - name: Build macOS release files
         run: |
+          set -euo pipefail
           npm run build
-          npx electron-builder --mac --x64 --arm64 --publish never
+          # Notarize when Apple secrets are present (Gatekeeper-friendly).
+          # Local/unsigned CI still builds without them.
+          EXTRA=()
+          if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
+            echo "Apple notarization credentials detected — enabling mac.notarize"
+            EXTRA+=(-c.mac.notarize=true)
+          else
+            echo "Apple notarization secrets missing — shipping unsigned/notarize-skipped build"
+          fi
+          npx electron-builder --mac --x64 --arm64 --publish never "${EXTRA[@]}"
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Verify packaged macOS apps (arm64 + x64)
+        run: |
+          set -euo pipefail
+          node scripts/verify-packaged-app.mjs "release/mac-arm64/Lamp Light.app"
+          node scripts/verify-packaged-app.mjs "release/mac/Lamp Light.app"
+          # Artifact naming must match package.json mac.artifactName (Lamp-Light-*-arch.*).
+          ls -la release/Lamp-Light-*-arm64.dmg release/Lamp-Light-*-x64.dmg
+          ls -la release/Lamp-Light-*-arm64.zip release/Lamp-Light-*-x64.zip
+          ls -la release/latest-mac.yml
+
       - name: Upload macOS assets
         uses: actions/upload-artifact@v4
         with:
           name: macos-release
           path: |
-            dist/*.dmg
-            dist/*.dmg.blockmap
-            dist/*.zip
-            dist/*.zip.blockmap
-            dist/latest-mac.yml
+            release/Lamp-Light-*.dmg
+            release/Lamp-Light-*.dmg.blockmap
+            release/Lamp-Light-*.zip
+            release/Lamp-Light-*.zip.blockmap
+            release/latest-mac.yml
           if-no-files-found: error
 
   release:
@@ -76,12 +161,45 @@ jobs:
         with:
           path: release-assets
           merge-multiple: true
+
+      - name: List assets
+        run: |
+          set -euo pipefail
+          ls -lah release-assets
+          # electron-updater + installers expected on every release.
+          test -f release-assets/latest.yml
+          test -f release-assets/latest-mac.yml
+          ls release-assets/Lamp-Light-Setup-*.exe >/dev/null
+          ls release-assets/Lamp-Light-*-arm64.dmg >/dev/null
+          ls release-assets/Lamp-Light-*-x64.dmg >/dev/null
+          ls release-assets/Lamp-Light-*-arm64.zip >/dev/null
+          ls release-assets/Lamp-Light-*-x64.zip >/dev/null
+
       - name: Publish GitHub release
         run: |
+          set -euo pipefail
+          # electron-updater needs latest.yml / latest-mac.yml on the GitHub Release.
+          NOTES="$(cat <<EOF
+          ## Lamp & Light ${GITHUB_REF_NAME#v}
+
+          Offline Bible trivia desktop build.
+
+          ### Highlights in recent builds
+          - macOS menu bar, About, dock reopen, keyboard shortcuts
+          - Daily reminder notifications + dock badge
+          - Custom profile photo + expanded biblical avatars
+          - Share Verse of the Day / Bible verses
+
+          Auto-update uses the \`.zip\` (Mac) and \`.exe\` (Windows) assets with \`latest-mac.yml\` / \`latest.yml\`.
+          EOF
+          )"
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" release-assets/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
+            gh release create "$GITHUB_REF_NAME" release-assets/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Lamp & Light ${GITHUB_REF_NAME#v}" \
+              --notes "$NOTES"
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -87,7 +87,7 @@ export async function isUsernameAvailable(username: string) {
 }
 
 export async function uploadInitialProfile(onlineUserId: string) {
-  const profileExport = await window.selah.invoke<{
+  const profileExport = await window.lampLight.invoke<{
     schemaVersion: number;
     sourceDeviceId: string;
     backupPath: string;
@@ -120,7 +120,7 @@ export async function hasUploadedProfile(onlineUserId: string) {
 type XpSyncEvent = { id: string; amount: number; source: string; createdAt: string };
 
 export async function syncXpLedger(onlineUserId: string) {
-  const pending = await window.selah.invoke<XpSyncEvent[]>("xp:sync-batch", onlineUserId);
+  const pending = await window.lampLight.invoke<XpSyncEvent[]>("xp:sync-batch", onlineUserId);
   if (pending.length) {
     const { error } = await supabase.from("xp_events").upsert(
       pending.map((event) => ({
@@ -133,14 +133,14 @@ export async function syncXpLedger(onlineUserId: string) {
       { onConflict: "id", ignoreDuplicates: true },
     );
     if (error) throw error;
-    await window.selah.invoke("xp:mark-synced", pending.map((event) => event.id));
+    await window.lampLight.invoke("xp:mark-synced", pending.map((event) => event.id));
   }
   const { data, error } = await supabase
     .from("xp_events")
     .select("id, amount, source, local_created_at")
     .eq("user_id", onlineUserId);
   if (error) throw error;
-  await window.selah.invoke("xp:apply-remote", (data ?? []).map((event) => ({
+  await window.lampLight.invoke("xp:apply-remote", (data ?? []).map((event) => ({
     id: event.id,
     amount: Number(event.amount),
     source: event.source,
@@ -149,7 +149,7 @@ export async function syncXpLedger(onlineUserId: string) {
 }
 
 export async function syncReaderData(onlineUserId:string){
-  const value=await window.selah.invoke<{sourceDeviceId:string;snapshot:unknown}>("reader:sync-export",onlineUserId);
+  const value=await window.lampLight.invoke<{sourceDeviceId:string;snapshot:unknown}>("reader:sync-export",onlineUserId);
   const {error}=await supabase.from("reader_sync_snapshots").upsert({user_id:onlineUserId,source_device_id:value.sourceDeviceId,snapshot:value.snapshot,updated_at:new Date().toISOString()},{onConflict:"user_id"});
   if(error)throw error;
 }
@@ -178,7 +178,7 @@ export async function removeFriendConnection(id: string) {
 }
 
 export async function createMultiplayerGame(bookIds:string[],questionCount:number,questionSeconds:number){
-  const questions=await window.selah.invoke<MultiplayerQuestion[]>("multiplayer:questions",{bookIds,count:questionCount});
+  const questions=await window.lampLight.invoke<MultiplayerQuestion[]>("multiplayer:questions",{bookIds,count:questionCount});
   const {data,error}=await supabase.rpc("create_multiplayer_game",{question_seconds_input:questionSeconds,questions_input:questions});
   if(error)throw error;return String(data);
 }

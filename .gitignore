@@ -4,3 +4,10 @@ dist-electron/
 release/
 content/*.sqlite*
 *.log
+.DS_Store
+.env
+.env.*
+!.env.example
+*.local
+.vscode/
+.idea/

@@ -1,6 +1,6 @@
 .update-status {
   align-items: center;
-  background: #edf2eb;
+  background: var(--update-ok-bg);
   border-radius: 999px;
   color: var(--green);
   display: flex;
@@ -16,18 +16,18 @@
 
 .update-status.available,
 .update-status.downloaded {
-  background: #fff4d6;
-  color: #80601f;
+  background: var(--update-warn-bg);
+  color: var(--update-warn-fg);
 }
 
 .update-status.error {
-  background: #f1efea;
-  color: #777;
+  background: var(--update-muted-bg);
+  color: var(--muted);
 }
 
 .update-spinner {
   animation: update-spin .7s linear infinite;
-  border: 2px solid #9bad9f;
+  border: 2px solid var(--sage);
   border-radius: 50%;
   border-top-color: var(--green);
   height: 13px;

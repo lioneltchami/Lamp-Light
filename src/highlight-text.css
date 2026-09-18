@@ -1,6 +1,103 @@
 .verse-text {
-  padding: 2px 1px;
-  border-radius: 3px;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
+	padding: 2px 1px;
+	border-radius: 3px;
+	-webkit-box-decoration-break: clone;
+	box-decoration-break: clone;
+}
+
+.scripture p.verse-row {
+	margin: 0;
+	padding: 6px 8px;
+	border-radius: 8px;
+	position: relative;
+	cursor: pointer;
+	transition: background 0.12s ease;
+}
+.scripture p.verse-row:hover {
+	background: color-mix(in srgb, var(--surface) 45%, transparent);
+}
+.scripture p.verse-open {
+	background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+.scripture p.verse-row:focus-within {
+	outline: none;
+}
+
+.highlights {
+	visibility: visible;
+	position: static;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+	width: fit-content;
+	max-width: 100%;
+	margin: 8px 0 2px;
+	padding: 6px 8px;
+	border-radius: 999px;
+	border: 1px solid var(--border);
+	background: var(--surface-2, var(--surface));
+	box-shadow: 0 6px 18px var(--shadow);
+	cursor: default;
+}
+.scripture p:hover .highlights {
+	visibility: visible;
+}
+
+.highlights-swatches {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+.highlights-divider {
+	width: 1px;
+	height: 18px;
+	margin: 0 2px;
+	background: var(--border-soft, var(--border));
+	flex-shrink: 0;
+}
+
+.highlights button {
+	width: 26px;
+	height: 26px;
+	border: 2px solid transparent;
+	border-radius: 50%;
+	padding: 0;
+	cursor: pointer;
+}
+.highlights .swatch.active {
+	border-color: var(--ink);
+	box-shadow: 0 0 0 2px var(--surface-2, var(--surface));
+}
+.highlights .highlights-action {
+	display: grid;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	border: 1px solid var(--border-soft, var(--border));
+	border-radius: 50%;
+	background: var(--surface);
+	color: var(--ink);
+}
+.highlights .highlights-action:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+.highlights .highlights-action:not(:disabled):hover {
+	border-color: var(--green);
+	color: var(--green);
+}
+
+[data-theme="dark"] .scripture {
+	--highlight-yellow: #5a4e28;
+	--highlight-green: #2f4a38;
+	--highlight-blue: #2a4550;
+	--highlight-pink: #5a3545;
+	--highlight-purple: #45385a;
+}
+
+[data-theme="dark"] .highlights {
+	background: #24302b;
+	border-color: #3f4c46;
+	box-shadow: 0 8px 22px #00000080;
 }

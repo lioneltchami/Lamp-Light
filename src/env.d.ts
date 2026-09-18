@@ -1,4 +1,14 @@
 /// <reference types="vite/client" />
-import type { Bootstrap, Profile, QuizState, Verse } from '../shared/types';
-declare global { interface Window { selah: { invoke<T=unknown>(channel:string,payload?:unknown):Promise<T>; activity():void; onUpdateStatus(listener:(status:unknown)=>void):()=>void } } }
+declare global {
+  interface Window {
+    lampLight: {
+      invoke<T = unknown>(channel: string, payload?: unknown): Promise<T>;
+      activity(): void;
+      onUpdateStatus(listener: (status: unknown) => void): () => void;
+      onNavigate(listener: (page: string) => void): () => void;
+      onShareVotd(listener: () => void): () => void;
+    };
+  }
+}
+
 export {};

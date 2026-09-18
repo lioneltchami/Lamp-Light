@@ -1,8 +1,8 @@
 {
-  "name": "bible-trivia",
+  "name": "lamp-light",
   "version": "1.2.7",
-  "description": "An offline-first Bible trivia desktop application with online community features",
-  "author": "Bible Trivia Project",
+  "description": "Lamp & Light — offline-first Bible trivia, reading, and practice",
+  "author": "Lamp & Light",
   "main": "dist-electron/electron/main.js",
   "type": "module",
   "scripts": {
@@ -11,7 +11,8 @@
     "test": "vitest run",
     "check": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "dist": "npm run build && electron-builder",
-    "release": "npm run build && electron-builder --publish always"
+    "release": "npm run build && electron-builder --publish always",
+    "verify:packaged": "node scripts/verify-packaged-app.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",
@@ -37,8 +38,12 @@
     "wait-on": "latest"
   },
   "build": {
-    "appId": "org.selahbible.desktop",
-    "productName": "Bible Trivia",
+    "appId": "org.lamplight.desktop",
+    "productName": "Lamp & Light",
+    "executableName": "Lamp Light",
+    "directories": {
+      "output": "release"
+    },
     "publish": [
       {
         "provider": "github",
@@ -51,7 +56,8 @@
       "**/*.node"
     ],
     "files": [
-      "dist/**/*",
+      "dist/index.html",
+      "dist/assets/**/*",
       "dist-electron/**/*",
       "electron/preload.cjs",
       "package.json"
@@ -68,7 +74,7 @@
     ],
     "win": {
       "icon": "build/icon.ico",
-      "artifactName": "Bible-Trivia-Setup-${version}.${ext}",
+      "artifactName": "Lamp-Light-Setup-${version}.${ext}",
       "target": [
         {
           "target": "nsis",
@@ -81,7 +87,10 @@
     "mac": {
       "icon": "build/icon.icns",
       "category": "public.app-category.education",
-      "artifactName": "Bible-Trivia-${version}-${arch}.${ext}",
+      "artifactName": "Lamp-Light-${version}-${arch}.${ext}",
+      "extendInfo": {
+        "NSUserNotificationUsageDescription": "Lamp & Light can remind you about today’s daily question."
+      },
       "target": [
         {
           "target": "dmg",

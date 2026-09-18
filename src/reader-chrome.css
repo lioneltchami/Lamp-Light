@@ -1,0 +1,430 @@
+/* Reader chrome: sticky bar, translation chip, search, Aa, location */
+
+.reader-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  margin: 0 -4px;
+  padding: 4px 4px 10px;
+  background: color-mix(in srgb, var(--cream) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid transparent;
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    padding 0.15s ease;
+}
+
+.reader-chrome.is-sticky {
+  border-bottom-color: var(--border);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--shadow) 35%, transparent);
+}
+
+.reader-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.reader-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.reader-tools {
+  display: none;
+}
+
+.location-menu {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.location-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 4px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.location-title > span {
+  font:
+    400 43px / 1.1 Georgia,
+    "Times New Roman",
+    serif;
+  color: var(--ink);
+  transition: font-size 0.15s ease;
+}
+
+.reader-chrome.is-sticky .location-title > span {
+  font-size: 28px;
+}
+
+.location-title svg {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+
+.location-title:hover > span,
+.location-title.open > span {
+  color: var(--green);
+}
+
+.location-title.open svg {
+  transform: rotate(180deg);
+  color: var(--green);
+}
+
+.location-panel {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  display: grid;
+  gap: 12px;
+  width: min(560px, 94vw);
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 10px 28px var(--shadow);
+}
+
+.location-testaments {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  min-height: 0;
+}
+
+.location-testament {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.location-testament > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.book-list {
+  display: grid;
+  gap: 2px;
+  max-height: 240px;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--cream, var(--surface));
+}
+
+.book-list button {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.book-list button:hover {
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+}
+
+.book-list button.active {
+  background: color-mix(in srgb, var(--green) 16%, var(--surface));
+  color: var(--green);
+  font-weight: 600;
+}
+
+.location-chapters {
+  display: grid;
+  gap: 6px;
+}
+
+.location-chapters > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chapter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 6px;
+  max-height: 220px;
+  overflow: auto;
+  padding: 2px;
+}
+
+.chapter-grid button {
+  min-height: 36px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--cream, var(--surface));
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.chapter-grid button:hover {
+  border-color: var(--green);
+}
+
+.chapter-grid button.active {
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 16%, var(--surface));
+  color: var(--green);
+  font-weight: 700;
+}
+
+@media (max-width: 560px) {
+  .location-testaments {
+    grid-template-columns: 1fr;
+  }
+
+  .book-list {
+    max-height: 160px;
+  }
+}
+
+.translation-menu {
+  position: relative;
+}
+
+.translation-chip,
+.search-icon-btn,
+.type-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font:
+    600 14px / 1 "DM Sans",
+    system-ui,
+    sans-serif;
+}
+
+.translation-chip.open,
+.search-icon-btn:hover,
+.type-menu-trigger.open {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.translation-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  display: grid;
+  gap: 4px;
+  min-width: 220px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 10px 28px var(--shadow);
+}
+
+.translation-panel button {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.translation-panel button:hover,
+.translation-panel button.active {
+  background: color-mix(in srgb, var(--green) 12%, var(--surface));
+}
+
+.translation-panel b {
+  font-size: 14px;
+}
+
+.translation-panel small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.bible-search-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.bible-search-wrap .bible-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(360px, 55vw);
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.bible-search-wrap .bible-search input {
+  border: 0;
+  outline: 0;
+  width: 100%;
+  background: transparent;
+  color: var(--ink);
+  padding: 10px 0;
+}
+
+.bible-search-wrap .bible-search button {
+  border: 0;
+  background: transparent;
+  color: var(--green);
+  padding: 4px;
+  cursor: pointer;
+}
+
+.text-controls {
+  position: relative;
+}
+
+.type-menu-trigger {
+  font:
+    600 15px / 1 Georgia,
+    "Times New Roman",
+    serif;
+}
+
+.type-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  display: grid;
+  gap: 12px;
+  min-width: 220px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 10px 28px var(--shadow);
+}
+
+.type-menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.type-menu-row > span {
+  font:
+    600 14px / 1 Georgia,
+    "Times New Roman",
+    serif;
+}
+
+.type-menu-group {
+  display: grid;
+  gap: 6px;
+}
+
+.type-menu-group > span,
+.type-menu-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.type-menu-hint {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.type-menu-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.type-menu-chips button,
+.type-menu-row button {
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: var(--cream, var(--surface));
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.type-menu-row button {
+  border: 0;
+  background: transparent;
+  color: var(--green);
+  padding: 6px;
+}
+
+.type-menu-chips button.active {
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 14%, var(--surface));
+  color: var(--green);
+  font-weight: 600;
+}
+
+.scripture {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+@media (max-width: 850px) {
+  .reader-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reader-head-actions {
+    justify-content: flex-start;
+  }
+
+  .location-title > span {
+    font-size: 32px;
+  }
+
+  .reader-chrome.is-sticky .location-title > span {
+    font-size: 24px;
+  }
+
+  .bible-search-wrap .bible-search {
+    width: min(280px, 70vw);
+  }
+}

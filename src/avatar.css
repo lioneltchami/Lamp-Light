@@ -1,57 +1,135 @@
 .avatar-picker {
-  margin-top: 18px;
+	margin-top: 0;
 }
 
 .avatar-picker h2 {
-  margin-bottom: 5px;
+	margin: 4px 0 6px;
+	font-family: Georgia, "Times New Roman", serif;
+	font-size: 22px;
+	font-weight: 400;
 }
 
 .avatar-picker > p {
-  color: #6d756f;
+	margin: 0;
+	color: var(--muted);
+	font-size: 13px;
+	line-height: 1.45;
+	max-width: 52ch;
+	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 .avatar-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
-  margin-top: 22px;
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	gap: 8px;
+	margin-top: 14px;
 }
 
 .avatar-grid button {
-  min-height: 132px;
-  border: 1px solid #d8d1c3;
-  border-radius: 13px;
-  background: white;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  color: var(--ink);
+	min-height: 96px;
+	border: 1px solid var(--border);
+	border-radius: 11px;
+	background: color-mix(in srgb, var(--paper) 70%, transparent);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 3px;
+	padding: 10px 6px;
+	color: var(--ink);
+	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 .avatar-grid button > span {
-  font-size: 42px;
+	font-size: 28px;
+	line-height: 1;
+}
+
+.avatar-grid button b {
+	font-size: 12px;
+	font-weight: 600;
 }
 
 .avatar-grid button small {
-  color: #6d756f;
+	color: var(--muted);
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	text-align: center;
+	line-height: 1.25;
+	text-transform: uppercase;
 }
 
 .avatar-grid button.selected {
-  border: 2px solid var(--green);
-  background: #edf2eb;
+	border: 2px solid var(--green);
+	background: color-mix(in srgb, var(--green) 8%, var(--paper));
+}
+
+.avatar-grid button.selected small {
+	color: var(--green);
 }
 
 .avatar-grid button.locked {
-  filter: grayscale(1);
-  opacity: .48;
-  background: #e9e8e4;
-  cursor: not-allowed;
+	position: relative;
+	filter: none;
+	opacity: 1;
+	background: color-mix(in srgb, var(--ink) 3%, var(--paper));
+	border-style: dashed;
+	border-color: var(--border-soft);
+	color: var(--muted);
+	cursor: not-allowed;
+}
+
+.avatar-grid button.locked > span {
+	filter: grayscale(1);
+	opacity: 0.45;
+}
+
+.avatar-grid button.locked b {
+	opacity: 0.7;
+}
+
+.avatar-grid button.locked small {
+	color: var(--gold-eyebrow, #9a7750);
+}
+
+.avatar-grid button:hover:not(:disabled) {
+	border-color: color-mix(in srgb, var(--green) 35%, var(--border));
+}
+
+.avatar-grid button.avatar-custom > .avatar-photo {
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.avatar-grid button.avatar-custom > span {
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	border: 1px dashed var(--border);
+	display: grid;
+	place-items: center;
+	font-size: 18px;
+	line-height: 1;
+	color: var(--muted);
+}
+
+.avatar-photo {
+	display: block;
+	object-fit: cover;
+	border-radius: 50%;
 }
 
 @media (max-width: 1050px) {
-  .avatar-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
+	.avatar-grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 560px) {
+	.avatar-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
 }

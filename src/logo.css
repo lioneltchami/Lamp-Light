@@ -1,35 +1,497 @@
-.brandmark.cross {
-  position: relative;
+.settings-page {
+	max-width: 720px;
+	margin-left: auto;
+	margin-right: auto;
+}
+.settings-page > .card {
+	padding: 20px 22px;
+	box-shadow: 0 4px 14px var(--shadow-card);
+}
+.settings-head {
+	margin-bottom: 14px;
+}
+.settings-head h1 {
+	font-family: "Libre Caslon Display", Georgia, serif;
+	font-weight: 400;
+	font-size: 36px;
+	margin: 4px 0 8px;
+}
+.settings-head > p {
+	margin: 0;
+	max-width: 46ch;
+	color: var(--muted);
+	line-height: 1.45;
+}
+.settings-sticky {
+	position: sticky;
+	/* park under sticky app-header (78px) so rail never kisses the gear */
+	top: 78px;
+	z-index: 4;
+	margin: 0 0 16px;
+	padding: 8px 0 10px;
+	background: color-mix(in srgb, var(--paper, var(--bg)) 94%, transparent);
+	backdrop-filter: blur(8px);
+}
+.settings-toast {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	margin: 0 0 10px;
+	padding: 11px 13px;
+	border-radius: 12px;
+	border: 1px solid var(--border);
+	background: var(--surface);
+	box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 8%, transparent);
+	font-size: 14px;
+	line-height: 1.4;
+}
+.settings-toast.ok {
+	border-color: color-mix(in srgb, var(--green) 45%, var(--border));
+	background: color-mix(
+		in srgb,
+		var(--ok-selected, #e8f2ea) 85%,
+		var(--surface)
+	);
+	color: var(--ink);
+}
+.settings-toast.err {
+	border-color: color-mix(in srgb, var(--bad-fg) 40%, var(--border));
+	background: color-mix(in srgb, var(--bad-fg) 8%, var(--surface));
+	color: var(--bad-fg);
+}
+.settings-toast-dismiss {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: none;
+	border-radius: 8px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	opacity: 0.7;
+}
+.settings-toast-dismiss:hover {
+	opacity: 1;
+	background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.settings-rail {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin: 0;
+	padding: 4px;
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	background: var(--surface-2, color-mix(in srgb, var(--ink) 4%, transparent));
+}
+.settings-rail > button {
+	flex: 1 1 0;
+	min-width: 0;
+	/* header `nav button` is display:flex + flex-start — force center here */
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 0;
+	border-radius: 9px;
+	padding: 9px 10px;
+	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+	font-size: 13px;
+	font-weight: 600;
+	letter-spacing: 0.01em;
+	text-align: center;
+	background: transparent;
+	color: var(--muted);
+	cursor: pointer;
+}
+.settings-rail > button:hover {
+	color: var(--ink);
+}
+.settings-rail > button.active {
+	color: var(--ink);
+	background: var(--paper);
+	box-shadow: 0 1px 4px var(--shadow-card);
+}
+.settings-block {
+	margin-top: 14px;
+	scroll-margin-top: 168px;
+	display: grid;
+	gap: 12px;
+}
+.settings-block:first-of-type {
+	margin-top: 0;
+}
+.settings-block h2 {
+	margin: 0;
+	font-family: Georgia, "Times New Roman", serif;
+	font-size: 22px;
+	font-weight: 400;
+	letter-spacing: 0;
+}
+.settings-copy {
+	margin: 0;
+	color: var(--muted);
+	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+	font-size: 14px;
+	line-height: 1.45;
+	max-width: 52ch;
+}
+.settings-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 12px;
+}
+.settings-row .secondary,
+.settings-row .primary {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+.settings-status {
+	color: var(--muted);
+	font-size: 13px;
+	line-height: 1.4;
+}
+.settings-path {
+	display: block;
+	padding: 11px 13px;
+	border-radius: 10px;
+	border: 1px solid var(--border);
+	background: color-mix(in srgb, var(--paper) 70%, transparent);
+	color: var(--ink);
+	font-size: 12px;
+	line-height: 1.4;
+	word-break: break-all;
+}
+.settings-error {
+	margin: 0;
+	color: var(--bad-fg);
+	font-size: 13px;
+}
+.settings-profiles {
+	display: grid;
+	gap: 6px;
+}
+.settings-profile-current-card {
+	display: grid;
+	gap: 12px;
+	padding: 14px 16px;
+	border: 1px solid color-mix(in srgb, var(--green) 40%, var(--border));
+	border-radius: 14px;
+	background: color-mix(in srgb, var(--green) 6%, var(--paper));
+}
+.settings-profile-current-top {
+	display: grid;
+	grid-template-columns: 44px 1fr auto;
+	align-items: center;
+	gap: 12px;
+}
+.settings-profile-current-card .settings-profile-meta b {
+	font-size: 16px;
+}
+.settings-profile-row {
+	display: grid;
+	grid-template-columns: 36px 1fr auto;
+	align-items: center;
+	gap: 12px;
+	text-align: left;
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	padding: 11px 14px;
+	background: color-mix(in srgb, var(--paper) 70%, transparent);
+	color: var(--ink);
+	cursor: pointer;
+	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.settings-profile-row:hover:not(:disabled) {
+	border-color: color-mix(in srgb, var(--green) 35%, var(--border));
+}
+.settings-profile-emoji {
+	font-size: 22px;
+	line-height: 1;
+	text-align: center;
+	width: 28px;
+	height: 28px;
+	display: grid;
+	place-items: center;
+	overflow: hidden;
+	border-radius: 50%;
+}
+.settings-profile-emoji .avatar-photo {
+	width: 28px;
+	height: 28px;
+}
+.settings-profile-current-card .settings-profile-emoji {
+	font-size: 28px;
+	width: 36px;
+	height: 36px;
+}
+.settings-profile-current-card .settings-profile-emoji .avatar-photo {
+	width: 36px;
+	height: 36px;
+}
+.settings-profile-meta {
+	display: grid;
+	gap: 2px;
+	min-width: 0;
+}
+.settings-profile-meta b {
+	font-family: Georgia, "Times New Roman", serif;
+	font-weight: 600;
+	font-size: 14px;
+}
+.settings-profile-meta small {
+	color: var(--muted);
+	font-size: 12px;
+	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.settings-profile-current {
+	display: inline-flex;
+	align-items: center;
+	padding: 3px 9px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--green) 14%, var(--paper));
+	color: var(--green);
+	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+}
+.settings-profile-switch {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--muted);
+}
+.settings-profile-row:hover:not(:disabled) .settings-profile-switch {
+	color: var(--green);
+}
+.settings-others-label {
+	margin: 8px 0 0;
+	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+.settings-add-profile {
+	justify-self: start;
+}
+.settings-create {
+	display: grid;
+	gap: 12px;
+	padding-top: 10px;
+	border-top: 1px solid var(--border-soft);
+}
+.settings-create-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+.settings-create h3,
+.settings-rename h3,
+.settings-subblock h3 {
+	margin: 0;
+	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+	font-size: 14px;
+	font-weight: 600;
+}
+.settings-create input,
+.settings-rename input {
+	flex: 1;
+	min-width: 160px;
+	padding: 11px 12px;
+	border: 1px solid var(--border-input);
+	border-radius: 10px;
+	background: var(--surface);
+	color: var(--ink);
+	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.settings-rename {
+	display: grid;
+	gap: 8px;
+}
+.settings-pref-list {
+	display: grid;
+	gap: 0;
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	overflow: hidden;
+	background: color-mix(in srgb, var(--paper) 70%, transparent);
+}
+.settings-pref-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px 16px;
+	padding: 12px 14px;
+	border-bottom: 1px solid var(--border-soft);
+	margin: 0;
+}
+.settings-pref-row:last-child {
+	border-bottom: none;
+}
+.settings-pref-label {
+	display: grid;
+	gap: 2px;
+	min-width: 0;
+}
+.settings-pref-label strong {
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--ink);
+}
+.settings-pref-label small {
+	font-size: 12px;
+	color: var(--muted);
+	line-height: 1.35;
+}
+.settings-pref-row select {
+	min-width: min(240px, 100%);
+	min-height: 38px;
+	padding: 8px 12px;
+	border-radius: 10px;
+	border: 1px solid var(--border-input);
+	background: var(--paper, var(--bg));
+	color: var(--ink);
+}
+.settings-field {
+	display: grid;
+	gap: 6px;
+	font-size: 13px;
+	color: var(--muted);
+}
+.settings-field select {
+	max-width: 360px;
+	padding: 10px 12px;
+	border-radius: 8px;
+	border: 1px solid var(--border-input);
+	background: var(--surface);
+	color: var(--ink);
+}
+.settings-sound {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 38px;
+}
+.settings-sound.on {
+	border-color: var(--good, #6b8f71);
+}
+.settings-subblock {
+	display: grid;
+	gap: 10px;
+	padding-top: 12px;
+	border-top: 1px solid var(--border-soft);
+}
+.settings-subblock:first-of-type {
+	padding-top: 2px;
+	border-top: none;
+}
+.settings-danger-row {
+	padding-top: 2px;
+}
+.settings-page .danger {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	border: 1px solid var(--bad-border);
+	background: var(--bad-soft);
+	color: var(--bad-fg);
+	border-radius: 10px;
+	padding: 9px 13px;
+	font-weight: 600;
+	cursor: pointer;
+}
+.settings-page .danger:hover:not(:disabled) {
+	filter: brightness(0.97);
+	border-color: var(--bad-fg);
+}
+.settings-page .danger:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+.settings-account-status {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px 16px;
+	padding: 12px 14px;
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--paper) 70%, transparent);
+}
+.settings-account-who {
+	display: grid;
+	gap: 2px;
+	min-width: 0;
+}
+.settings-account-who strong {
+	font-size: 15px;
+	font-weight: 600;
+}
+.settings-account-who small {
+	color: var(--muted);
+	font-size: 12px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.settings-link-chip {
+	display: inline-flex;
+	align-items: center;
+	padding: 5px 10px;
+	border-radius: 999px;
+	border: 1px solid var(--border);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+}
+.settings-link-chip.linked {
+	border-color: color-mix(in srgb, var(--green) 45%, var(--border));
+	background: var(
+		--ok-selected,
+		color-mix(in srgb, var(--green) 12%, var(--surface))
+	);
+	color: var(--green);
+}
+.settings-link-chip.unlinked {
+	border-color: color-mix(
+		in srgb,
+		var(--gold-eyebrow, #9a7750) 40%,
+		var(--border)
+	);
+	background: color-mix(
+		in srgb,
+		var(--gold-eyebrow, #9a7750) 10%,
+		var(--surface)
+	);
+	color: var(--gold-eyebrow, #9a7750);
+}
+.settings-meta {
+	margin: 18px 0 0;
+	padding-top: 12px;
+	border-top: 1px solid var(--border-soft);
+	color: var(--muted);
+	font-size: 12px;
+	letter-spacing: 0.02em;
+	text-align: center;
 }
 
-.brandmark.cross::before,
-.brandmark.cross::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  border-radius: 1px;
-  background: white;
-  transform: translate(-50%, -50%);
-}
-
-.brandmark.cross::before {
-  width: 5px;
-  height: 27px;
-}
-
-.brandmark.cross::after {
-  width: 19px;
-  height: 5px;
-  top: 43%;
-}
-
-.brandmark.big.cross::before {
-  width: 8px;
-  height: 47px;
-}
-
-.brandmark.big.cross::after {
-  width: 32px;
-  height: 8px;
+@media (max-width: 560px) {
+	.settings-rail > button {
+		flex: 1 1 calc(50% - 4px);
+	}
+	.settings-page > .card {
+		padding: 16px 16px;
+	}
 }
