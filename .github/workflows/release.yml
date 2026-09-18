@@ -188,7 +188,7 @@ jobs:
             npx electron-builder --mac --x64 --arm64 --publish never
           else
             export CSC_IDENTITY_AUTO_DISCOVERY=true
-            export CSC_NAME="Developer ID Application: Lionel Tchami Nfada (UD43QCFHR4)"
+            export CSC_NAME="Lionel Tchami Nfada (UD43QCFHR4)"
             if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
               echo "Apple notarization credentials detected — enabling mac.notarize"
               npx electron-builder --mac --x64 --arm64 --publish never -c.mac.notarize=true

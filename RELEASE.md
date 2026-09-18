@@ -18,8 +18,8 @@ Optional: `feature/…` → PR → `dev` when work is large or parallel. Otherwi
 ## Before every release
 
 1. **Land product work on `dev`**, CI green.
-2. **Bump `package.json` `version` on `dev`** (e.g. `1.2.12` → `1.2.16`).  
-   Tag **must** match: `v1.2.16` ↔ `"version": "1.2.16"`.
+2. **Bump `package.json` `version` on `dev`** (e.g. `1.2.12` → `1.2.17`).  
+   Tag **must** match: `v1.2.17` ↔ `"version": "1.2.17"`.
 3. **Open PR `dev` → `main`**, wait for CI, merge (squash or merge commit — either is fine).
 4. **Tag the commit that is now on `main`** (no direct push of commits to `main`):
 
@@ -27,8 +27,8 @@ Optional: `feature/…` → PR → `dev` when work is large or parallel. Otherwi
    git fetch origin
    git checkout main
    git pull --ff-only origin main
-   git tag v1.2.16
-   git push origin v1.2.16
+   git tag v1.2.17
+   git push origin v1.2.17
    git checkout dev
    ```
 
