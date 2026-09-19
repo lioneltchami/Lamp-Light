@@ -255,16 +255,11 @@ jobs:
         run: |
           set -euo pipefail
           # electron-updater needs latest.yml / latest-mac.yml on the GitHub Release.
-          NOTES="$(cat <<EOF
-          ## Lamp & Light ${GITHUB_REF_NAME#v}
-
+          # --generate-notes builds "What's Changed" from commits since the previous tag.
+          # --notes is prepended as a short product blurb (not a frozen feature list).
+          VERSION="${GITHUB_REF_NAME#v}"
+          BLURB="$(cat <<EOF
           Offline-first Bible trivia, reading, and practice for your desktop.
-
-          ### In this lineage
-          - macOS menu, About panel, dock reopen, keyboard shortcuts
-          - Daily reminder notifications + dock badge
-          - Custom profile photo + expanded biblical avatars
-          - Share Verse of the Day and reader verses
 
           Auto-update uses the Mac \`.zip\` / Windows \`.exe\` with \`latest-mac.yml\` / \`latest.yml\`.
           EOF
@@ -274,8 +269,9 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" release-assets/* \
               --repo "$GITHUB_REPOSITORY" \
-              --title "Lamp & Light ${GITHUB_REF_NAME#v}" \
-              --notes "$NOTES"
+              --title "Lamp & Light ${VERSION}" \
+              --notes "$BLURB" \
+              --generate-notes
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
