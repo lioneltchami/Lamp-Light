@@ -98,6 +98,7 @@ export default function Reader({
   const [targetVerse, setTargetVerse] = useState<number | null>(null);
   const [editingVerse, setEditingVerse] = useState<number | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
+  const [noteMode, setNoteMode] = useState<"view" | "edit">("view");
   const [pendingNote, setPendingNote] = useState<{
     bookId: string;
     chapter: number;
@@ -290,6 +291,7 @@ export default function Reader({
       return;
     setEditingVerse(pendingNote.verse);
     setNoteDraft(pendingNote.note);
+    setNoteMode(pendingNote.note.trim() ? "view" : "edit");
     setPendingNote(null);
   }, [pendingNote, verses, bookId, chapter]);
   useEffect(() => {
@@ -362,17 +364,21 @@ export default function Reader({
     });
   }
   function openNoteDrawer(item: Verse) {
+    const existing = (item.note ?? "").trim();
     setEditingVerse(item.verse);
     setNoteDraft(item.note ?? "");
+    setNoteMode(existing ? "view" : "edit");
     setActionVerse(null);
     setLibraryOpen(false);
   }
   function closeNoteDrawer() {
     setEditingVerse(null);
     setNoteDraft("");
+    setNoteMode("view");
   }
   function saveNote() {
     if (editingVerse === null) return;
+    const trimmed = noteDraft.trim();
     void api("note:set", {
       bookId,
       chapter,
@@ -381,7 +387,25 @@ export default function Reader({
     }).then(() => {
       void load();
       void loadLibrary();
-      if (!noteDraft.trim()) closeNoteDrawer();
+      if (!trimmed) closeNoteDrawer();
+      else {
+        setNoteDraft(trimmed);
+        setNoteMode("view");
+      }
+    });
+  }
+  function deleteNote() {
+    if (editingVerse === null) return;
+    if (!window.confirm("Do you want to delete this note?")) return;
+    void api("note:set", {
+      bookId,
+      chapter,
+      verse: editingVerse,
+      note: "",
+    }).then(() => {
+      void load();
+      void loadLibrary();
+      closeNoteDrawer();
     });
   }
   function toggleBookmark(verse: number) {
@@ -647,7 +671,8 @@ export default function Reader({
                 <button
                   type="button"
                   className={`bookmark-icon-btn${libraryOpen ? " open" : ""}${libraryCount ? " has-marks" : ""}`}
-                  aria-label="Highlights, bookmarks, and notes"
+                  aria-label="Your library: highlights, bookmarks, and notes"
+                  title="Your library — highlights, bookmarks, and notes"
                   aria-expanded={libraryOpen}
                   aria-haspopup="dialog"
                   onClick={() => {
@@ -674,8 +699,8 @@ export default function Reader({
                     aria-label="Your Bible annotations"
                   >
                     <p>
-                      Browse verse highlights, bookmarks, and notes. Tap a
-                      verse in the text to highlight, bookmark, or note it.
+                      Your library — every highlight, bookmark, and note on
+                      this profile. Tap a verse in the text to add more.
                     </p>
                     <div className="library-tabs" role="tablist">
                       {(
@@ -1108,24 +1133,57 @@ export default function Reader({
               <X size={16} />
             </button>
           </header>
-          <textarea
-            autoFocus
-            value={noteDraft}
-            onChange={(event) => setNoteDraft(event.target.value)}
-            placeholder="Write a private note saved only to this profile…"
-          />
-          <div className="note-drawer-actions">
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => setNoteDraft("")}
-            >
-              Clear
-            </button>
-            <button type="button" className="primary" onClick={saveNote}>
-              Save note
-            </button>
-          </div>
+          {noteMode === "view" ? (
+            <>
+              <div className="note-drawer-body">{noteDraft}</div>
+              <div className="note-drawer-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setNoteMode("edit")}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="secondary danger"
+                  onClick={deleteNote}
+                >
+                  Delete
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <textarea
+                autoFocus
+                value={noteDraft}
+                onChange={(event) => setNoteDraft(event.target.value)}
+                placeholder="Write a private note saved only to this profile…"
+              />
+              <div className="note-drawer-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => {
+                    const current = verses.find((v) => v.verse === editingVerse);
+                    const saved = (current?.note ?? "").trim();
+                    if (saved) {
+                      setNoteDraft(saved);
+                      setNoteMode("view");
+                    } else {
+                      closeNoteDrawer();
+                    }
+                  }}
+                >
+                  Cancel
+                </button>
+                <button type="button" className="primary" onClick={saveNote}>
+                  Save note
+                </button>
+              </div>
+            </>
+          )}
         </aside>
       )}
       {!query && !isQuizPassage && (
