@@ -268,3 +268,24 @@
   border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
 }
+
+.note-drawer-body {
+  min-height: 140px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--cream, var(--surface));
+  color: var(--ink);
+  font: 15px / 1.55 "DM Sans", system-ui, sans-serif;
+  white-space: pre-wrap;
+}
+
+.note-drawer-actions .danger {
+  color: #a33;
+}
+
+.note-drawer-actions .danger:hover {
+  border-color: #a33;
+  color: #8b1e1e;
+}
