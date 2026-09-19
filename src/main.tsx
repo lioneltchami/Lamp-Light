@@ -72,6 +72,11 @@ const api = <T,>(c: string, p?: unknown) => window.lampLight.invoke<T>(c, p);
 async function sharePayload(title: string, text: string) {
 	const body = text.trim();
 	const headline = title.trim() || "Lamp & Light";
+	// Desktop Electron: Web Share is unreliable — clipboard IPC always.
+	if (window.lampLight) {
+		await api("share:clipboard", { title: headline, text: body });
+		return;
+	}
 	try {
 		if (typeof navigator.share === "function") {
 			await navigator.share({
