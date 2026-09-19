@@ -18,8 +18,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   BibleTranslation,
   Book,
-  ChapterBookmark,
   Verse,
+  VerseBookmarkRef,
+  VerseHighlight,
   VerseNote,
   VerseSearchResult,
 } from "../shared/types";
@@ -57,7 +58,7 @@ async function shareVerse(title: string, text: string) {
   await api("share:clipboard", { title: headline, text: body });
 }
 const colors = ["yellow", "green", "blue", "pink", "purple"] as const;
-const bookmarkColors = ["red", "gold", "green", "blue", "purple"] as const;
+type LibraryTab = "highlights" | "bookmarks" | "notes";
 
 export default function Reader({
   books,
@@ -85,7 +86,6 @@ export default function Reader({
     saved.translationId ?? getPrefs().defaultTranslation,
   );
   const [translations, setTranslations] = useState<BibleTranslation[]>([]);
-  const [bookmarks, setBookmarks] = useState<ChapterBookmark[]>([]);
   const [verses, setVerses] = useState<Verse[]>([]);
   const [loadError, setLoadError] = useState("");
   const [fontSize, setFontSize] = useState<number>(saved.fontSize ?? 21);
@@ -98,12 +98,19 @@ export default function Reader({
   const [targetVerse, setTargetVerse] = useState<number | null>(null);
   const [editingVerse, setEditingVerse] = useState<number | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
+  const [pendingNote, setPendingNote] = useState<{
+    bookId: string;
+    chapter: number;
+    verse: number;
+    note: string;
+  } | null>(null);
   const [actionVerse, setActionVerse] = useState<number | null>(null);
-  const [bookmarksOpen, setBookmarksOpen] = useState(
-    Boolean(saved.bookmarksOpen),
-  );
-  const [notesOpen, setNotesOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryTab, setLibraryTab] = useState<LibraryTab>("notes");
+  const [highlightFilter, setHighlightFilter] = useState<string | null>(null);
   const [allNotes, setAllNotes] = useState<VerseNote[]>([]);
+  const [allHighlights, setAllHighlights] = useState<VerseHighlight[]>([]);
+  const [allBookmarks, setAllBookmarks] = useState<VerseBookmarkRef[]>([]);
   const [notesBusy, setNotesBusy] = useState(false);
   const [notesFlash, setNotesFlash] = useState<string | null>(null);
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
@@ -111,8 +118,7 @@ export default function Reader({
   const [translationOpen, setTranslationOpen] = useState(false);
   const typeMenuRef = useRef<HTMLDivElement>(null);
   const locationMenuRef = useRef<HTMLDivElement>(null);
-  const bookmarkRailRef = useRef<HTMLDivElement>(null);
-  const notesRailRef = useRef<HTMLDivElement>(null);
+  const libraryRailRef = useRef<HTMLDivElement>(null);
   const translationMenuRef = useRef<HTMLDivElement>(null);
   const searchWrapRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -139,10 +145,12 @@ export default function Reader({
         setLoadError(error instanceof Error ? error.message : String(error));
       });
   };
-  const loadBookmarks = () =>
-    api<ChapterBookmark[]>("chapter-bookmark:list").then(setBookmarks);
-  const loadNotes = () =>
-    api<VerseNote[]>("notes:list").then(setAllNotes);
+  const loadLibrary = () =>
+    Promise.all([
+      api<VerseNote[]>("notes:list").then(setAllNotes),
+      api<VerseHighlight[]>("highlights:list").then(setAllHighlights),
+      api<VerseBookmarkRef[]>("bookmarks:list").then(setAllBookmarks),
+    ]);
   useEffect(() => {
     void api<BibleTranslation[]>("bible:translations").then(setTranslations);
   }, []);
@@ -158,14 +166,11 @@ export default function Reader({
       .finally(() => setLocationReady(true));
   }, []);
   useEffect(() => {
-    if (!isQuizPassage) {
-      void loadBookmarks();
-      void loadNotes();
-    }
+    if (!isQuizPassage) void loadLibrary();
   }, [isQuizPassage]);
   useEffect(() => {
-    if (notesOpen && !isQuizPassage) void loadNotes();
-  }, [notesOpen, isQuizPassage]);
+    if (libraryOpen && !isQuizPassage) void loadLibrary();
+  }, [libraryOpen, isQuizPassage]);
   useEffect(() => {
     if (!notesFlash) return;
     const t = setTimeout(() => setNotesFlash(null), 2500);
@@ -178,8 +183,7 @@ export default function Reader({
     if (
       !typeMenuOpen &&
       !locationOpen &&
-      !bookmarksOpen &&
-      !notesOpen &&
+      !libraryOpen &&
       !translationOpen
     )
       return;
@@ -200,18 +204,11 @@ export default function Reader({
         setLocationOpen(false);
       }
       if (
-        bookmarksOpen &&
-        bookmarkRailRef.current &&
-        !bookmarkRailRef.current.contains(target)
+        libraryOpen &&
+        libraryRailRef.current &&
+        !libraryRailRef.current.contains(target)
       ) {
-        setBookmarksOpen(false);
-      }
-      if (
-        notesOpen &&
-        notesRailRef.current &&
-        !notesRailRef.current.contains(target)
-      ) {
-        setNotesOpen(false);
+        setLibraryOpen(false);
       }
       if (
         translationOpen &&
@@ -225,8 +222,7 @@ export default function Reader({
       if (event.key !== "Escape") return;
       setTypeMenuOpen(false);
       setLocationOpen(false);
-      setBookmarksOpen(false);
-      setNotesOpen(false);
+      setLibraryOpen(false);
       setTranslationOpen(false);
       if (!query) setSearchOpen(false);
     };
@@ -236,7 +232,7 @@ export default function Reader({
       document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey);
     };
-  }, [typeMenuOpen, locationOpen, bookmarksOpen, notesOpen, translationOpen, query]);
+  }, [typeMenuOpen, locationOpen, libraryOpen, translationOpen, query]);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     onScroll();
@@ -286,16 +282,26 @@ export default function Reader({
     return () => cancelAnimationFrame(frame);
   }, [targetVerse, verses]);
   useEffect(() => {
+    if (!pendingNote || !verses.length) return;
+    if (
+      pendingNote.bookId !== bookId ||
+      pendingNote.chapter !== chapter
+    )
+      return;
+    setEditingVerse(pendingNote.verse);
+    setNoteDraft(pendingNote.note);
+    setPendingNote(null);
+  }, [pendingNote, verses, bookId, chapter]);
+  useEffect(() => {
     localStorage.setItem(
       "bible-reader-preferences",
       JSON.stringify({
         fontSize,
         lineHeight,
         translationId,
-        bookmarksOpen,
       }),
     );
-  }, [fontSize, lineHeight, translationId, bookmarksOpen]);
+  }, [fontSize, lineHeight, translationId]);
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
@@ -329,7 +335,7 @@ export default function Reader({
     setQuery("");
     setResults([]);
     setLocationOpen(false);
-    setNotesOpen(false);
+    setLibraryOpen(false);
     if (nextVerse === undefined)
       window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -350,11 +356,20 @@ export default function Reader({
     openLocation(nextBook.id, nextChapter);
   }
   function highlight(verse: number, color: string | null) {
-    void api("highlight:set", { bookId, chapter, verse, color }).then(load);
+    void api("highlight:set", { bookId, chapter, verse, color }).then(() => {
+      void load();
+      void loadLibrary();
+    });
   }
-  function editNote(item: Verse) {
+  function openNoteDrawer(item: Verse) {
     setEditingVerse(item.verse);
     setNoteDraft(item.note ?? "");
+    setActionVerse(null);
+    setLibraryOpen(false);
+  }
+  function closeNoteDrawer() {
+    setEditingVerse(null);
+    setNoteDraft("");
   }
   function saveNote() {
     if (editingVerse === null) return;
@@ -364,9 +379,15 @@ export default function Reader({
       verse: editingVerse,
       note: noteDraft,
     }).then(() => {
-      setEditingVerse(null);
       void load();
-      void loadNotes();
+      void loadLibrary();
+      if (!noteDraft.trim()) closeNoteDrawer();
+    });
+  }
+  function toggleBookmark(verse: number) {
+    void api("bookmark:toggle", { bookId, chapter, verse }).then(() => {
+      void load();
+      void loadLibrary();
     });
   }
   async function exportNotes() {
@@ -394,7 +415,7 @@ export default function Reader({
       }>("notes:import");
       if (result.canceled) return;
       setNotesFlash(`Imported ${result.count ?? 0} notes`);
-      void loadNotes();
+      void loadLibrary();
       void load();
     } catch (error) {
       setNotesFlash(error instanceof Error ? error.message : String(error));
@@ -402,18 +423,15 @@ export default function Reader({
       setNotesBusy(false);
     }
   }
-  function setBookmark(color: (typeof bookmarkColors)[number]) {
-    void api("chapter-bookmark:set", { color, bookId, chapter }).then(
-      loadBookmarks,
-    );
-  }
-  function clearBookmark(color: (typeof bookmarkColors)[number]) {
-    void api("chapter-bookmark:clear", color).then(loadBookmarks);
-  }
+  const libraryCount =
+    allNotes.length + allHighlights.length + allBookmarks.length;
+  const filteredHighlights = highlightFilter
+    ? allHighlights.filter((item) => item.color === highlightFilter)
+    : allHighlights;
   return (
     <section
       ref={readerRef}
-      className={`reader${scrolled ? " is-scrolled" : ""}`}
+      className={`reader${scrolled ? " is-scrolled" : ""}${editingVerse !== null && !isQuizPassage ? " has-note-drawer" : ""}`}
     >
       {back && (
         <button className="back" onClick={back}>
@@ -444,8 +462,7 @@ export default function Reader({
                   aria-haspopup="dialog"
                   onClick={() => {
                     setTypeMenuOpen(false);
-                    setBookmarksOpen(false);
-                    setNotesOpen(false);
+                    setLibraryOpen(false);
                     setTranslationOpen(false);
                     setLocationOpen((open) => !open);
                   }}
@@ -549,8 +566,7 @@ export default function Reader({
                   onClick={() => {
                     setLocationOpen(false);
                     setTypeMenuOpen(false);
-                    setBookmarksOpen(false);
-                    setNotesOpen(false);
+                    setLibraryOpen(false);
                     setTranslationOpen((open) => !open);
                   }}
                 >
@@ -616,8 +632,7 @@ export default function Reader({
                       setLocationOpen(false);
                       setTypeMenuOpen(false);
                       setTranslationOpen(false);
-                      setBookmarksOpen(false);
-                      setNotesOpen(false);
+                      setLibraryOpen(false);
                       setSearchOpen(true);
                     }}
                   >
@@ -626,209 +641,207 @@ export default function Reader({
                 )}
               </div>
               <div
-                className={`bookmark-menu${bookmarksOpen ? " is-open" : ""}`}
-                ref={bookmarkRailRef}
+                className={`bookmark-menu library-menu${libraryOpen ? " is-open" : ""}`}
+                ref={libraryRailRef}
               >
                 <button
                   type="button"
-                  className={`bookmark-icon-btn${bookmarksOpen ? " open" : ""}${bookmarks.length ? " has-marks" : ""}`}
-                  aria-label="Chapter bookmarks"
-                  aria-expanded={bookmarksOpen}
+                  className={`bookmark-icon-btn${libraryOpen ? " open" : ""}${libraryCount ? " has-marks" : ""}`}
+                  aria-label="Highlights, bookmarks, and notes"
+                  aria-expanded={libraryOpen}
                   aria-haspopup="dialog"
                   onClick={() => {
                     setLocationOpen(false);
                     setTypeMenuOpen(false);
                     setTranslationOpen(false);
-                    setNotesOpen(false);
-                    setBookmarksOpen((open) => !open);
+                    setLibraryOpen((open) => !open);
                   }}
                 >
                   <Bookmark
                     size={18}
-                    fill={bookmarks.length ? "currentColor" : "none"}
+                    fill={libraryCount ? "currentColor" : "none"}
                   />
-                  {bookmarks.length > 0 && (
-                    <span className="bookmark-badge">{bookmarks.length}</span>
+                  {libraryCount > 0 && (
+                    <span className="bookmark-badge">
+                      {libraryCount > 99 ? "99+" : libraryCount}
+                    </span>
                   )}
                 </button>
-                {bookmarksOpen && (
+                {libraryOpen && (
                   <div
-                    className="bookmark-manage-panel"
+                    className="bookmark-manage-panel library-panel"
                     role="dialog"
-                    aria-label="Manage chapter bookmarks"
+                    aria-label="Your Bible annotations"
                   >
                     <p>
-                      Five colors, one chapter each. Tap a filled ribbon to
-                      jump, or mark this chapter.
+                      Browse verse highlights, bookmarks, and notes. Tap a
+                      verse in the text to highlight, bookmark, or note it.
                     </p>
-                    {bookmarks.length > 0 && (
-                      <div className="bookmark-quick">
-                        {bookmarkColors.map((color) => {
-                          const mark = bookmarks.find(
-                            (item) => item.color === color,
-                          );
-                          if (!mark) return null;
-                          return (
+                    <div className="library-tabs" role="tablist">
+                      {(
+                        [
+                          ["highlights", `Highlights (${allHighlights.length})`],
+                          ["bookmarks", `Bookmarks (${allBookmarks.length})`],
+                          ["notes", `Notes (${allNotes.length})`],
+                        ] as const
+                      ).map(([id, label]) => (
+                        <button
+                          type="button"
+                          role="tab"
+                          key={id}
+                          aria-selected={libraryTab === id}
+                          className={libraryTab === id ? "active" : ""}
+                          onClick={() => setLibraryTab(id)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {libraryTab === "highlights" && (
+                      <>
+                        <div className="library-filters">
+                          <button
+                            type="button"
+                            className={!highlightFilter ? "active" : ""}
+                            onClick={() => setHighlightFilter(null)}
+                          >
+                            All
+                          </button>
+                          {colors.map((color) => (
                             <button
                               type="button"
                               key={color}
-                              className={`bookmark-chip bookmark-${color} filled`}
+                              className={`swatch-filter swatch-${color}${highlightFilter === color ? " active" : ""}`}
+                              aria-label={`Filter ${color} highlights`}
+                              aria-pressed={highlightFilter === color}
                               onClick={() =>
-                                openLocation(mark.bookId, mark.chapter)
+                                setHighlightFilter(
+                                  highlightFilter === color ? null : color,
+                                )
                               }
-                            >
-                              <Bookmark
-                                className="bookmark-ribbon"
-                                size={16}
-                                fill="currentColor"
-                              />
-                              <span className="bookmark-chip-ref">
-                                {mark.bookId} {mark.chapter}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                    <div className="bookmark-manage-list">
-                      {bookmarkColors.map((color) => {
-                        const mark = bookmarks.find(
-                          (item) => item.color === color,
-                        );
-                        return (
-                          <div
-                            className={`bookmark-manage-row bookmark-${color}`}
-                            key={color}
-                          >
-                            <Bookmark
-                              className="bookmark-ribbon"
-                              size={16}
-                              fill="currentColor"
                             />
-                            <b>{color}</b>
-                            <span>
-                              {mark
-                                ? `${mark.bookName} ${mark.chapter}`
-                                : "Empty"}
-                            </span>
-                            {mark && (
+                          ))}
+                        </div>
+                        {filteredHighlights.length === 0 ? (
+                          <p className="notes-empty">
+                            No highlights yet. Tap a verse, then pick a color.
+                          </p>
+                        ) : (
+                          <div className="notes-list">
+                            {filteredHighlights.map((item) => (
                               <button
                                 type="button"
-                                className="bookmark-go"
+                                key={`${item.bookId}-${item.chapter}-${item.verse}-${item.color}`}
+                                className="notes-list-item"
                                 onClick={() =>
-                                  openLocation(mark.bookId, mark.chapter)
+                                  openLocation(
+                                    item.bookId,
+                                    item.chapter,
+                                    item.verse,
+                                  )
                                 }
                               >
-                                Go
+                                <strong>
+                                  <span
+                                    className={`swatch swatch-${item.color} inline`}
+                                    aria-hidden
+                                  />
+                                  {item.bookName} {item.chapter}:{item.verse}
+                                </strong>
                               </button>
-                            )}
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {libraryTab === "bookmarks" &&
+                      (allBookmarks.length === 0 ? (
+                        <p className="notes-empty">
+                          No bookmarks yet. Tap a verse, then the bookmark
+                          icon.
+                        </p>
+                      ) : (
+                        <div className="notes-list">
+                          {allBookmarks.map((item) => (
                             <button
                               type="button"
-                              onClick={() => setBookmark(color)}
+                              key={`${item.bookId}-${item.chapter}-${item.verse}`}
+                              className="notes-list-item"
+                              onClick={() =>
+                                openLocation(
+                                  item.bookId,
+                                  item.chapter,
+                                  item.verse,
+                                )
+                              }
                             >
-                              Mark here
+                              <strong>
+                                <Bookmark size={13} fill="currentColor" />{" "}
+                                {item.bookName} {item.chapter}:{item.verse}
+                              </strong>
                             </button>
-                            {mark && (
-                              <button
-                                type="button"
-                                aria-label={`Clear ${color} bookmark`}
-                                className="bookmark-clear"
-                                onClick={() => clearBookmark(color)}
-                              >
-                                <X size={13} />
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div
-                className={`bookmark-menu notes-menu${notesOpen ? " is-open" : ""}`}
-                ref={notesRailRef}
-              >
-                <button
-                  type="button"
-                  className={`bookmark-icon-btn${notesOpen ? " open" : ""}${allNotes.length ? " has-marks" : ""}`}
-                  aria-label="Verse notes"
-                  aria-expanded={notesOpen}
-                  aria-haspopup="dialog"
-                  onClick={() => {
-                    setLocationOpen(false);
-                    setTypeMenuOpen(false);
-                    setTranslationOpen(false);
-                    setBookmarksOpen(false);
-                    setNotesOpen((open) => !open);
-                  }}
-                >
-                  <StickyNote
-                    size={18}
-                    fill={allNotes.length ? "currentColor" : "none"}
-                  />
-                  {allNotes.length > 0 && (
-                    <span className="bookmark-badge">{allNotes.length}</span>
-                  )}
-                </button>
-                {notesOpen && (
-                  <div
-                    className="bookmark-manage-panel notes-panel"
-                    role="dialog"
-                    aria-label="All verse notes"
-                  >
-                    <p>
-                      All personal notes on this profile. Jump to a verse, or
-                      export / import a JSON file.
-                    </p>
-                    <div className="notes-panel-actions">
-                      <button
-                        type="button"
-                        className="secondary"
-                        disabled={notesBusy}
-                        onClick={() => void exportNotes()}
-                      >
-                        <Download size={14} /> Export
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary"
-                        disabled={notesBusy}
-                        onClick={() => void importNotes()}
-                      >
-                        <Upload size={14} /> Import
-                      </button>
-                    </div>
-                    {notesFlash && (
-                      <p className="notes-flash" role="status">
-                        {notesFlash}
-                      </p>
-                    )}
-                    {allNotes.length === 0 ? (
-                      <p className="notes-empty">No notes yet. Tap a verse, then the note icon.</p>
-                    ) : (
-                      <div className="notes-list">
-                        {allNotes.map((item) => (
+                          ))}
+                        </div>
+                      ))}
+                    {libraryTab === "notes" && (
+                      <>
+                        <div className="notes-panel-actions">
                           <button
                             type="button"
-                            key={`${item.bookId}-${item.chapter}-${item.verse}`}
-                            className="notes-list-item"
-                            onClick={() => {
-                              setNotesOpen(false);
-                              openLocation(
-                                item.bookId,
-                                item.chapter,
-                                item.verse,
-                              );
-                            }}
+                            className="secondary"
+                            disabled={notesBusy}
+                            onClick={() => void exportNotes()}
                           >
-                            <strong>
-                              {item.bookName} {item.chapter}:{item.verse}
-                            </strong>
-                            <span>{item.note}</span>
+                            <Download size={14} /> Export
                           </button>
-                        ))}
-                      </div>
+                          <button
+                            type="button"
+                            className="secondary"
+                            disabled={notesBusy}
+                            onClick={() => void importNotes()}
+                          >
+                            <Upload size={14} /> Import
+                          </button>
+                        </div>
+                        {notesFlash && (
+                          <p className="notes-flash" role="status">
+                            {notesFlash}
+                          </p>
+                        )}
+                        {allNotes.length === 0 ? (
+                          <p className="notes-empty">
+                            No notes yet. Tap a verse, then the note icon.
+                          </p>
+                        ) : (
+                          <div className="notes-list">
+                            {allNotes.map((item) => (
+                              <button
+                                type="button"
+                                key={`${item.bookId}-${item.chapter}-${item.verse}`}
+                                className="notes-list-item"
+                                onClick={() => {
+                                  setPendingNote({
+                                    bookId: item.bookId,
+                                    chapter: item.chapter,
+                                    verse: item.verse,
+                                    note: item.note,
+                                  });
+                                  openLocation(
+                                    item.bookId,
+                                    item.chapter,
+                                    item.verse,
+                                  );
+                                }}
+                              >
+                                <strong>
+                                  {item.bookName} {item.chapter}:{item.verse}
+                                </strong>
+                                <span>{item.note}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -843,8 +856,7 @@ export default function Reader({
                   onClick={() => {
                     setLocationOpen(false);
                     setTranslationOpen(false);
-                    setBookmarksOpen(false);
-                    setNotesOpen(false);
+                    setLibraryOpen(false);
                     setTypeMenuOpen((open) => !open);
                   }}
                 >
@@ -965,10 +977,31 @@ export default function Reader({
                 >
                   {item.text}
                 </span>
-                {!isQuizPassage && item.note && (
-                  <small className="verse-note">
-                    <StickyNote size={13} /> {item.note}
-                  </small>
+                {!isQuizPassage && (item.bookmarked || item.note) && (
+                  <span className="verse-markers" aria-hidden={false}>
+                    {item.bookmarked && (
+                      <span
+                        className="verse-marker bookmarked"
+                        title="Bookmarked"
+                      >
+                        <Bookmark size={12} fill="currentColor" />
+                      </span>
+                    )}
+                    {item.note && (
+                      <button
+                        type="button"
+                        className={`verse-marker has-note${editingVerse === item.verse ? " active" : ""}`}
+                        aria-label={`Open note for verse ${item.verse}`}
+                        title="Open note"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openNoteDrawer(item);
+                        }}
+                      >
+                        <StickyNote size={12} />
+                      </button>
+                    )}
+                  </span>
                 )}
                 {!isQuizPassage && open && (
                   <span
@@ -1004,6 +1037,22 @@ export default function Reader({
                     </button>
                     <button
                       type="button"
+                      className={`highlights-action${item.bookmarked ? " annotation-active" : ""}`}
+                      aria-label={
+                        item.bookmarked
+                          ? `Remove bookmark from verse ${item.verse}`
+                          : `Bookmark verse ${item.verse}`
+                      }
+                      title={item.bookmarked ? "Remove bookmark" : "Bookmark"}
+                      onClick={() => toggleBookmark(item.verse)}
+                    >
+                      <Bookmark
+                        size={14}
+                        fill={item.bookmarked ? "currentColor" : "none"}
+                      />
+                    </button>
+                    <button
+                      type="button"
                       className="highlights-action"
                       aria-label={`Share verse ${item.verse}`}
                       title="Share verse"
@@ -1021,7 +1070,7 @@ export default function Reader({
                       className={`highlights-action${item.note ? " annotation-active" : ""}`}
                       aria-label={`Add note to verse ${item.verse}`}
                       title="Personal note"
-                      onClick={() => editNote(item)}
+                      onClick={() => openNoteDrawer(item)}
                     >
                       <StickyNote size={14} />
                     </button>
@@ -1042,28 +1091,42 @@ export default function Reader({
         </div>
       )}
       {editingVerse !== null && !isQuizPassage && (
-        <div className="note-editor card">
-          <b>
-            Personal note · {book.name} {chapter}:{editingVerse}
-          </b>
+        <aside className="note-drawer" aria-label="Verse note">
+          <header className="note-drawer-head">
+            <div>
+              <span className="eyebrow">NOTE</span>
+              <b>
+                {book.name} {chapter}:{editingVerse}
+              </b>
+            </div>
+            <button
+              type="button"
+              className="note-drawer-close"
+              aria-label="Close note"
+              onClick={closeNoteDrawer}
+            >
+              <X size={16} />
+            </button>
+          </header>
           <textarea
             autoFocus
             value={noteDraft}
             onChange={(event) => setNoteDraft(event.target.value)}
             placeholder="Write a private note saved only to this profile…"
           />
-          <div>
-            <button className="secondary" onClick={() => setEditingVerse(null)}>
-              Cancel
-            </button>
-            <button className="secondary" onClick={() => setNoteDraft("")}>
+          <div className="note-drawer-actions">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setNoteDraft("")}
+            >
               Clear
             </button>
-            <button className="primary" onClick={saveNote}>
+            <button type="button" className="primary" onClick={saveNote}>
               Save note
             </button>
           </div>
-        </div>
+        </aside>
       )}
       {!query && !isQuizPassage && (
         <div className="chapter-nav">

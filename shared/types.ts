@@ -84,6 +84,21 @@ export interface VerseNote {
   note: string;
   updatedAt: string;
 }
+export interface VerseHighlight {
+  bookId: string;
+  bookName: string;
+  chapter: number;
+  verse: number;
+  color: string;
+  updatedAt: string;
+}
+export interface VerseBookmarkRef {
+  bookId: string;
+  bookName: string;
+  chapter: number;
+  verse: number;
+  createdAt: string;
+}
 export interface Bootstrap {
   profiles: Profile[];
   activeProfile: Profile | null;

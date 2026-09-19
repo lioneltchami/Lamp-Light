@@ -428,6 +428,53 @@ function registerAnnotations() {
 				.prepare("INSERT INTO bookmarks VALUES(?,?,?,?,?)")
 				.run(activeProfileId, p.bookId, p.chapter, p.verse, now());
 	});
+	ipcMain.handle("bookmarks:list", () => {
+		if (!activeProfileId) throw new Error("No profile");
+		return (
+			user
+				.prepare(
+					"SELECT book_id bookId,chapter,verse,created_at createdAt FROM bookmarks WHERE profile_id=? ORDER BY created_at DESC",
+				)
+				.all(activeProfileId) as {
+				bookId: string;
+				chapter: number;
+				verse: number;
+				createdAt: string;
+			}[]
+		).map((row) => ({
+			...row,
+			bookName:
+				(
+					content
+						.prepare("SELECT name FROM books WHERE id=?")
+						.get(row.bookId) as { name: string } | undefined
+				)?.name ?? row.bookId,
+		}));
+	});
+	ipcMain.handle("highlights:list", () => {
+		if (!activeProfileId) throw new Error("No profile");
+		return (
+			user
+				.prepare(
+					"SELECT book_id bookId,chapter,verse,color,updated_at updatedAt FROM highlights WHERE profile_id=? ORDER BY updated_at DESC",
+				)
+				.all(activeProfileId) as {
+				bookId: string;
+				chapter: number;
+				verse: number;
+				color: string;
+				updatedAt: string;
+			}[]
+		).map((row) => ({
+			...row,
+			bookName:
+				(
+					content
+						.prepare("SELECT name FROM books WHERE id=?")
+						.get(row.bookId) as { name: string } | undefined
+				)?.name ?? row.bookId,
+		}));
+	});
 	ipcMain.handle("chapter-bookmark:list", () => {
 		if (!activeProfileId) throw new Error("No profile");
 		return (
