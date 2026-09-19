@@ -31,6 +31,7 @@ import {
 	showDailyReminderNotification,
 } from "./macos.js";
 import { userMigrations } from "./migrations.js";
+import { parseNotesImport } from "../shared/notesImport.js";
 
 const { autoUpdater } = electronUpdater;
 // Keep the original storage location across rebrands (Bible Trivia → Lamp & Light)
@@ -304,6 +305,110 @@ function registerAnnotations() {
 					"DELETE FROM verse_notes WHERE profile_id=? AND book_id=? AND chapter=? AND verse=?",
 				)
 				.run(activeProfileId, p.bookId, p.chapter, p.verse);
+	});
+	ipcMain.handle("notes:list", () => {
+		if (!activeProfileId) throw new Error("No profile");
+		return (
+			user
+				.prepare(
+					"SELECT book_id bookId,chapter,verse,note,updated_at updatedAt FROM verse_notes WHERE profile_id=? ORDER BY updated_at DESC",
+				)
+				.all(activeProfileId) as {
+				bookId: string;
+				chapter: number;
+				verse: number;
+				note: string;
+				updatedAt: string;
+			}[]
+		).map((row) => ({
+			...row,
+			bookName:
+				(
+					content
+						.prepare("SELECT name FROM books WHERE id=?")
+						.get(row.bookId) as { name: string } | undefined
+				)?.name ?? row.bookId,
+		}));
+	});
+	ipcMain.handle("notes:export", async () => {
+		if (!activeProfileId) throw new Error("No profile");
+		const notes = (
+			user
+				.prepare(
+					"SELECT book_id bookId,chapter,verse,note,updated_at updatedAt FROM verse_notes WHERE profile_id=? ORDER BY book_id,chapter,verse",
+				)
+				.all(activeProfileId) as {
+				bookId: string;
+				chapter: number;
+				verse: number;
+				note: string;
+				updatedAt: string;
+			}[]
+		).map((row) => ({
+			...row,
+			bookName:
+				(
+					content
+						.prepare("SELECT name FROM books WHERE id=?")
+						.get(row.bookId) as { name: string } | undefined
+				)?.name ?? row.bookId,
+		}));
+		const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+		const result = await dialog.showSaveDialog({
+			title: "Export verse notes",
+			defaultPath: path.join(
+				app.getPath("documents"),
+				`lamp-light-notes-${stamp}.json`,
+			),
+			filters: [{ name: "JSON", extensions: ["json"] }],
+		});
+		if (result.canceled || !result.filePath) return { canceled: true as const };
+		fs.writeFileSync(
+			result.filePath,
+			JSON.stringify({ version: 1, exportedAt: now(), notes }, null, 2),
+		);
+		return { canceled: false as const, path: result.filePath, count: notes.length };
+	});
+	ipcMain.handle("notes:import", async () => {
+		if (!activeProfileId) throw new Error("No profile");
+		const result = await dialog.showOpenDialog({
+			title: "Import verse notes",
+			properties: ["openFile"],
+			filters: [{ name: "JSON", extensions: ["json"] }],
+		});
+		if (result.canceled || !result.filePaths[0])
+			return { canceled: true as const };
+		const filePath = result.filePaths[0];
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+		} catch {
+			throw new Error("Could not read notes JSON file.");
+		}
+		const rows = parseNotesImport(parsed);
+		if (!rows.length) throw new Error("No valid notes found in that file.");
+		const upsert = user.prepare(
+			"INSERT INTO verse_notes VALUES(?,?,?,?,?,?) ON CONFLICT(profile_id,book_id,chapter,verse) DO UPDATE SET note=excluded.note,updated_at=excluded.updated_at",
+		);
+		const stamp = now();
+		const tx = user.transaction(() => {
+			for (const row of rows) {
+				const book = content
+					.prepare("SELECT chapters FROM books WHERE id=?")
+					.get(row.bookId) as { chapters: number } | undefined;
+				if (!book || row.chapter > book.chapters) continue;
+				upsert.run(
+					activeProfileId,
+					row.bookId,
+					row.chapter,
+					row.verse,
+					row.note,
+					stamp,
+				);
+			}
+		});
+		tx();
+		return { canceled: false as const, path: filePath, count: rows.length };
 	});
 	ipcMain.handle("bookmark:toggle", (_, p) => {
 		if (!activeProfileId) throw new Error("No profile");

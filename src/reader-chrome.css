@@ -2,7 +2,8 @@
 
 .reader-chrome {
   position: sticky;
-  top: 0;
+  /* park under sticky .app-header (78px) — never cover Home/Quizzes/Bible/Online */
+  top: 78px;
   z-index: 40;
   margin: 0 -4px;
   padding: 4px 4px 10px;

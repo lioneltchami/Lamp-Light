@@ -1,1 +1,67 @@
 .verse-note{display:flex;align-items:center;gap:5px;font:13px/1.4 "Segoe UI",sans-serif;color:var(--muted);border-left:2px solid var(--sage);margin:7px 20px;padding:4px 8px}.highlights .annotation-active{color:var(--gold);background:var(--surface)2c8}.note-editor{display:grid;gap:12px;margin-top:15px}.note-editor textarea{min-height:110px;resize:vertical;border:1px solid var(--border-input);border-radius:9px;padding:12px;font:15px/1.5 "Segoe UI",sans-serif}.note-editor>div{display:flex;justify-content:flex-end;gap:8px}
+
+.notes-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.notes-panel-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.notes-flash {
+  margin: 0 0 8px;
+  color: var(--green);
+  font-size: 12px;
+}
+
+.notes-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.notes-list {
+  display: grid;
+  gap: 6px;
+  max-height: min(360px, 50vh);
+  overflow: auto;
+}
+
+.notes-list-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--cream, var(--surface));
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notes-list-item:hover {
+  border-color: var(--green);
+}
+
+.notes-list-item strong {
+  font-size: 13px;
+  color: var(--green);
+}
+
+.notes-list-item span {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

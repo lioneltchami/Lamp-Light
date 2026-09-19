@@ -76,6 +76,14 @@ export interface ChapterBookmark {
   bookName: string;
   chapter: number;
 }
+export interface VerseNote {
+  bookId: string;
+  bookName: string;
+  chapter: number;
+  verse: number;
+  note: string;
+  updatedAt: string;
+}
 export interface Bootstrap {
   profiles: Profile[];
   activeProfile: Profile | null;
