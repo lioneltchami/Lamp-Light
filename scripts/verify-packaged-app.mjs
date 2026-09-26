@@ -112,6 +112,15 @@ if (size > MAX_ASAR_BYTES) {
 }
 
 const files = listAsarFiles(asarPath);
+const testFilesLeaked = files.filter((f) => normalizeAsarPath(f).endsWith(".test.js"));
+if (testFilesLeaked.length > 0) {
+  console.error(
+    `FAIL: ${testFilesLeaked.length} test file(s) leaked into app.asar. ` +
+      "The build.files filter for `!**/*.test.js` is missing or broken.",
+  );
+  console.error("Sample leaked entries:", testFilesLeaked.slice(0, 5));
+  process.exit(1);
+}
 const electronFiles = files.filter((f) =>
   normalizeAsarPath(f).startsWith("dist-electron/"),
 );
