@@ -52,6 +52,8 @@ import {
 	type ThemePreference,
 } from "./theme";
 import { pickTodayVotd } from "./votd";
+import type { UpdateStatus } from "./types";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import "./theme.css";
 import "./styles.css";
 import "./avatar.css";
@@ -142,7 +144,9 @@ function App() {
 		[headerCompact, setHeaderCompact] = useState(false),
 		[themePref, setThemePref] = useState<ThemePreference>(() =>
 			getThemePreference(),
-		);
+		),
+		[confirmLeaveTarget, setConfirmLeaveTarget] = useState<string | null>(null),
+		[bookQuizError, setBookQuizError] = useState<string | null>(null);
 	const navigateRef = useRef<(x: string) => void>(() => undefined);
 	const shareVotdRef = useRef<() => void>(() => undefined);
 	const setAppearance = (next: ThemePreference) => {
@@ -215,7 +219,11 @@ function App() {
 	const startBookQuiz = (bookId: string) => {
 		api<QuizState>("session:start", { mode: "full", bookId })
 			.then(beginSession)
-			.catch((e) => alert(e instanceof Error ? e.message : String(e)));
+			.catch((e) =>
+				setBookQuizError(
+					e instanceof Error ? e.message : String(e),
+				),
+			);
 	};
 	const leaveQuizMessage =
 		"Leave this quiz? This attempt will be lost. Medals only update when you finish a full quiz.";
@@ -234,19 +242,24 @@ function App() {
 		if (target !== "bible") setBibleFocus(null);
 		setPage(target);
 	};
+	const confirmAbandonQuiz = async (target: string) => {
+		setConfirmLeaveTarget(null);
+		if (session) {
+			try {
+				await api("session:abandon", session.sessionId);
+			} catch {
+				/* still leave UI even if abandon fails */
+			}
+		}
+		clearSessionUi(target);
+	};
 	const abandonAndGo = async (target = "home") => {
 		if (!session || session.completed) {
 			clearSessionUi(target);
 			return true;
 		}
-		if (!confirm(leaveQuizMessage)) return false;
-		try {
-			await api("session:abandon", session.sessionId);
-		} catch {
-			/* still leave UI even if abandon fails */
-		}
-		clearSessionUi(target);
-		return true;
+		setConfirmLeaveTarget(target);
+		return false;
 	};
 	const exitSession = async (target = "home") => {
 		if (session && !session.completed) {
@@ -432,6 +445,28 @@ function App() {
 					/>
 				)}
 			</main>
+			<ConfirmDialog
+				open={confirmLeaveTarget !== null}
+				title="Leave quiz?"
+				body={leaveQuizMessage}
+				confirmLabel="Leave"
+				cancelLabel="Stay"
+				destructive
+				onConfirm={() => {
+					if (confirmLeaveTarget !== null)
+						void confirmAbandonQuiz(confirmLeaveTarget);
+				}}
+				onCancel={() => setConfirmLeaveTarget(null)}
+			/>
+			<ConfirmDialog
+				open={bookQuizError !== null}
+				title="Couldn’t start quiz"
+				body={bookQuizError ?? ""}
+				confirmLabel="OK"
+				hideCancel
+				onConfirm={() => setBookQuizError(null)}
+				onCancel={() => setBookQuizError(null)}
+			/>
 		</div>
 	);
 }
@@ -448,10 +483,6 @@ function ProfileGate({
 }) {
 	const [name, setName] = useState(""),
 		[avatar, setAvatar] = useState("lamb");
-	type UpdateStatus = {
-		state: "checking" | "up-to-date" | "available" | "downloaded" | "error";
-		version?: string;
-	};
 	const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
 		state: "checking",
 	});
@@ -489,7 +520,9 @@ function ProfileGate({
 					? `Downloading update ${updateStatus.version ?? ""}…`
 					: updateStatus.state === "downloaded"
 						? `Update ${updateStatus.version ?? ""} ready`
-						: "Update check unavailable";
+						: updateStatus.reason
+							? `Update check failed: ${updateStatus.reason}`
+							: "Update check unavailable";
 	return (
 		<div className="gate">
 			<div className="gate-card">
@@ -521,7 +554,13 @@ function ProfileGate({
 					<div className="profiles">
 						{boot.profiles.map((p) => (
 							<button
-								onClick={() => api("profile:select", p.id).then(refresh)}
+								onClick={() =>
+									api("profile:select", p.id)
+										.then(refresh)
+										.catch((err: unknown) =>
+											console.error("profile:select failed", err),
+										)
+								}
 								key={p.id}
 							>
 								<span className="gate-profile-face" aria-hidden>
@@ -588,12 +627,14 @@ function Dashboard({
 	const hasContinue = Boolean(session && !session.completed);
 	const votd = pickTodayVotd();
 	const [votdText, setVotdText] = useState<string | null>(null);
-	const [votdStatus, setVotdStatus] = useState<"loading" | "ready" | "empty">(
-		"loading",
-	);
+	const [votdStatus, setVotdStatus] = useState<
+		"loading" | "ready" | "empty" | "error"
+	>("loading");
+	const [votdError, setVotdError] = useState<string | null>(null);
 	useEffect(() => {
 		let cancelled = false;
 		setVotdStatus("loading");
+		setVotdError(null);
 		api<Verse[]>("bible:chapter", {
 			bookId: votd.bookId,
 			chapter: votd.chapter,
@@ -617,10 +658,17 @@ function Dashboard({
 				setVotdText(text);
 				setVotdStatus("ready");
 			})
-			.catch(() => {
+			.catch((err: unknown) => {
 				if (cancelled) return;
 				setVotdText(null);
-				setVotdStatus("empty");
+				setVotdStatus("error");
+				setVotdError(
+					err instanceof Error
+						? err.message
+						: typeof err === "string"
+							? err
+							: "Couldn't load today's verse.",
+				);
 			});
 		return () => {
 			cancelled = true;
@@ -719,6 +767,11 @@ function Dashboard({
 					<aside className="votd card">
 						<span className="eyebrow">VERSE OF THE DAY</span>
 						<h2>{votd.label}</h2>
+						{votdStatus === "error" && votdError && (
+							<p className="form-error" role="alert">
+								{votdError}
+							</p>
+						)}
 						<p
 							className={
 								votdStatus === "ready" ? "votd-text" : "votd-text is-muted"
@@ -728,7 +781,9 @@ function Dashboard({
 								? "Loading today’s verse…"
 								: votdStatus === "ready" && votdText
 									? votdText
-									: "Verse text isn’t available yet for this translation."}
+									: votdStatus === "error"
+										? "Today’s verse couldn’t be loaded. Try again in a moment."
+										: "Verse text isn’t available yet for this translation."}
 						</p>
 						<button
 							type="button"
@@ -1409,11 +1464,6 @@ function SettingsPage({
 	onOpenOnline: () => void;
 	onProfileSwitched: () => Promise<void>;
 }) {
-	type UpdateStatus = {
-		state: "checking" | "up-to-date" | "available" | "downloaded" | "error";
-		version?: string;
-	};
-
 	const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
 		state: "up-to-date",
 	});
@@ -1439,7 +1489,13 @@ function SettingsPage({
 	const [onlineAccount, setOnlineAccount] = useState<OnlineAccount | null>(
 		null,
 	);
+	const [onlineRestoreError, setOnlineRestoreError] = useState<string | null>(
+		null,
+	);
 	const [syncBusy, setSyncBusy] = useState(false);
+	const [confirmLeaveProfile, setConfirmLeaveProfile] = useState(false);
+	const [confirmSignOut, setConfirmSignOut] = useState(false);
+	const [confirmUnlink, setConfirmUnlink] = useState(false);
 	const active = boot.activeProfile;
 	const linked =
 		Boolean(onlineAccount && active?.onlineUserId) &&
@@ -1467,8 +1523,20 @@ function SettingsPage({
 		);
 		void api<UpdateStatus>("update:status").then(setUpdateStatus);
 		void restoreOnlineAccount()
-			.then(setOnlineAccount)
-			.catch(() => setOnlineAccount(null));
+			.then((acct) => {
+				setOnlineAccount(acct);
+				setOnlineRestoreError(null);
+			})
+			.catch((err: unknown) => {
+				setOnlineAccount(null);
+				setOnlineRestoreError(
+					err instanceof Error
+						? err.message
+						: typeof err === "string"
+							? err
+							: "Couldn't restore your online sign-in.",
+				);
+			});
 		return off;
 	}, []);
 
@@ -1505,7 +1573,9 @@ function SettingsPage({
 					? `Downloading ${updateStatus.version ?? "update"}…`
 					: updateStatus.state === "downloaded"
 						? `Update ${updateStatus.version ?? ""} ready — restart when prompted`
-						: "Could not check for updates (normal in development)";
+						: updateStatus.reason
+							? `Could not check for updates: ${updateStatus.reason}`
+							: "Could not check for updates (normal in development)";
 
 	const run = async (fn: () => Promise<void>) => {
 		setBusy(true);
@@ -1561,41 +1631,39 @@ function SettingsPage({
 	};
 
 	const leaveProfile = async () => {
-		if (
-			!window.confirm(
-				"Leave this profile and return to the welcome screen?\n\nYour XP, quizzes, and notes stay on this computer — you can switch back anytime.",
-			)
-		)
-			return;
+		setConfirmLeaveProfile(true);
+	};
+
+	const signOutAccount = async () => {
+		setConfirmSignOut(true);
+	};
+
+	const unlinkOnly = async () => {
+		setConfirmUnlink(true);
+	};
+
+	const doLeaveProfile = async () => {
+		setConfirmLeaveProfile(false);
 		await run(async () => {
 			await api("profile:clear-active");
 			await onProfileSwitched();
 		});
 	};
 
-	const signOutAccount = async () => {
-		if (
-			!window.confirm(
-				"Sign out of your online account?\n\nFriends and cloud sync pause until you sign in again. Local progress on this device stays.",
-			)
-		)
-			return;
+	const doSignOutAccount = async () => {
+		setConfirmSignOut(false);
 		await run(async () => {
 			await signOutOnline();
 			await api("profile:unlink-online");
 			setOnlineAccount(null);
+			setOnlineRestoreError(null);
 			await refreshBoot();
 			setFlash({ text: "Signed out of online account.", ok: true });
 		});
 	};
 
-	const unlinkOnly = async () => {
-		if (
-			!window.confirm(
-				"Unlink this local profile from the online account?\n\nYou stay signed in online. This profile stops sharing sync with that account until you link again from Online.",
-			)
-		)
-			return;
+	const doUnlinkOnly = async () => {
+		setConfirmUnlink(false);
 		await run(async () => {
 			await api("profile:unlink-online");
 			await refreshBoot();
@@ -1937,6 +2005,11 @@ function SettingsPage({
 					Optional cloud sign-in for friends and sync. Local progress never
 					depends on being signed in.
 				</p>
+				{onlineRestoreError && (
+					<p className="form-error" role="alert">
+						{onlineRestoreError}
+					</p>
+				)}
 				{onlineAccount ? (
 					<>
 						<div className="settings-account-status">
@@ -2148,6 +2221,40 @@ function SettingsPage({
 			<p className="settings-meta">
 				{boot.bankVersion ? ` · question bank ${boot.bankVersion}` : ""}
 			</p>
+			<ConfirmDialog
+				open={confirmLeaveProfile}
+				title="Leave profile?"
+				body={
+					"Leave this profile and return to the welcome screen?\n\nYour XP, quizzes, and notes stay on this computer — you can switch back anytime."
+				}
+				confirmLabel="Leave"
+				cancelLabel="Stay"
+				onConfirm={() => void doLeaveProfile()}
+				onCancel={() => setConfirmLeaveProfile(false)}
+			/>
+			<ConfirmDialog
+				open={confirmSignOut}
+				title="Sign out?"
+				body={
+					"Sign out of your online account?\n\nFriends and cloud sync pause until you sign in again. Local progress on this device stays."
+				}
+				confirmLabel="Sign out"
+				cancelLabel="Cancel"
+				onConfirm={() => void doSignOutAccount()}
+				onCancel={() => setConfirmSignOut(false)}
+			/>
+			<ConfirmDialog
+				open={confirmUnlink}
+				title="Unlink profile?"
+				body={
+					"Unlink this local profile from the online account?\n\nYou stay signed in online. This profile stops sharing sync with that account until you link again from Online."
+				}
+				confirmLabel="Unlink"
+				cancelLabel="Cancel"
+				destructive
+				onConfirm={() => void doUnlinkOnly()}
+				onCancel={() => setConfirmUnlink(false)}
+			/>
 		</section>
 	);
 }

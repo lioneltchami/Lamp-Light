@@ -16,6 +16,12 @@ export type UpdateDialogState =
 export type UpdateStatus = {
 	state: UpdateDialogState;
 	version?: string;
+	/**
+	 * Human-readable error reason, only populated when `state === "error"`.
+	 * Kept optional so non-error states stay structurally identical to the
+	 * shape the renderer already expects.
+	 */
+	reason?: string;
 };
 
 export type DialogDecision = "show" | "suppress";

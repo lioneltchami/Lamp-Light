@@ -39,6 +39,31 @@ import {
 } from "./updater-state.js";
 
 const { autoUpdater } = electronUpdater;
+
+// Process-level safety net. We attach these BEFORE the rest of main process
+// setup runs so that any crash path (e.g. a stray uncaught error during
+// `app.whenReady().then(...)`) is captured and surfaced to the user via a
+// native error box instead of silently terminating the electron process.
+process.on("uncaughtException", (err) => {
+	console.error("[uncaughtException]", err);
+	try {
+		electron.dialog.showErrorBox(
+			"Lamp & Light hit an unexpected error",
+			`${err && err.stack ? err.stack : String(err)}\n\nThe app may need to restart.`,
+		);
+	} catch {
+		/* dialog may not be ready */
+	}
+});
+process.on(
+	"unhandledRejection",
+	(reason: unknown, _promise: Promise<unknown>) => {
+		// We intentionally do NOT show a dialog on rejection — they fire often,
+		// are usually already logged by the underlying call site, and a modal
+		// per rejection would be hostile. Just record the reason for the logs.
+		console.error("[unhandledRejection]", reason);
+	},
+);
 // Keep the original storage location across rebrands (Bible Trivia → Lamp & Light)
 // so upgrades never strand offline profiles in a newly named Electron directory.
 app.setPath(
@@ -328,7 +353,9 @@ function configureAutoUpdates(win: InstanceType<typeof BrowserWindow>) {
 		}, 4000);
 	});
 	autoUpdater.on("error", (error) => {
-		publish({ state: "error" });
+		const reason =
+			(error && (error as { message?: string }).message) || String(error);
+		publish({ state: "error", reason });
 		console.error("Automatic update error:", error);
 	});
 
@@ -1476,4 +1503,19 @@ app.on("activate", () => {
 });
 app.on("window-all-closed", () => {
 	if (process.platform !== "darwin") app.quit();
+});
+
+// Lifecycle hooks. `lastQuitReason` is captured for downstream telemetry so
+// we can later tell user-initiated quits apart from auto-update restarts.
+let lastQuitReason: "user" | "update" | "quit-forced" = "user";
+app.on("before-quit", () => {
+	if (updaterQuitInProgress) {
+		lastQuitReason = "update";
+		return; // let it through
+	}
+	// Allow future hooks (telemetry flush, etc.) to run here.
+});
+app.on("will-quit", () => {
+	// Best-effort cleanup logging. Real telemetry hook is a future PR.
+	console.info(`[lifecycle] will-quit (reason=${lastQuitReason})`);
 });
