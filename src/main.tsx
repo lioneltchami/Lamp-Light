@@ -469,8 +469,12 @@ function ProfileGate({
 		const off = window.lampLight.onUpdateStatus((value) =>
 			show(value as UpdateStatus),
 		);
+		// Read the cached status only. Do NOT trigger `update:check` here —
+		// if an update is already downloaded and waiting, the main process
+		// will silently no-op the check (and would otherwise re-fire the
+		// "Restart and update" dialog through electron-updater's cache-hit
+		// path). The user can force a fresh check from Settings.
 		void api<UpdateStatus>("update:status").then(show);
-		void api<UpdateStatus>("update:check").then(show);
 		return () => {
 			off();
 			if (timer) clearTimeout(timer);
@@ -2016,10 +2020,20 @@ function SettingsPage({
 					<div className="settings-row">
 						<button
 							className="secondary"
-							disabled={busy}
+							disabled={
+								busy ||
+								updateStatus.state === "checking" ||
+								updateStatus.state === "downloaded"
+							}
 							onClick={() =>
 								void run(async () => {
-									const status = await api<UpdateStatus>("update:check");
+									// `force: true` so the main process bypasses its
+									// "skip when downloaded" guard and actually
+									// contacts GitHub — useful after the user has
+									// been sitting on a pending update for a while.
+									const status = await api<UpdateStatus>("update:check", {
+										force: true,
+									});
 									setUpdateStatus(status);
 								})
 							}
