@@ -12,6 +12,10 @@ env:
   # electron-builder writes installers here (not dist/ — dist is Vite output only).
   EB_OUTPUT: release
 
+concurrency:
+  group: lamp-light-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   # Tags must land on main (never cut a release from an unmerged dev tip).
   guard:
