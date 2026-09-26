@@ -14,7 +14,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   BibleTranslation,
   Book,
@@ -25,6 +25,7 @@ import type {
   VerseSearchResult,
 } from "../shared/types";
 import { getPrefs } from "./prefs";
+import { useAsyncError } from "./hooks/useAsyncError";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import "./reader.css";
 import "./reader-chrome.css";
@@ -88,6 +89,7 @@ export default function Reader({
   );
   const [translations, setTranslations] = useState<BibleTranslation[]>([]);
   const [verses, setVerses] = useState<Verse[]>([]);
+  const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [fontSize, setFontSize] = useState<number>(saved.fontSize ?? 21);
   const [lineHeight, setLineHeight] = useState<number>(saved.lineHeight ?? 1.9);
@@ -95,6 +97,7 @@ export default function Reader({
   const [results, setResults] = useState<VerseSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const searchError = useAsyncError();
   const [scrolled, setScrolled] = useState(false);
   const [targetVerse, setTargetVerse] = useState<number | null>(null);
   const [editingVerse, setEditingVerse] = useState<number | null>(null);
@@ -139,21 +142,26 @@ export default function Reader({
     [books],
   );
   const translation = translations.find((item) => item.id === translationId);
-  const load = () => {
+  const load = useCallback(() => {
     setLoadError("");
+    setLoading(true);
     return api<Verse[]>("bible:chapter", { translationId, bookId, chapter })
       .then(setVerses)
       .catch((error) => {
         setVerses([]);
         setLoadError(error instanceof Error ? error.message : String(error));
-      });
-  };
-  const loadLibrary = () =>
-    Promise.all([
-      api<VerseNote[]>("notes:list").then(setAllNotes),
-      api<VerseHighlight[]>("highlights:list").then(setAllHighlights),
-      api<VerseBookmarkRef[]>("bookmarks:list").then(setAllBookmarks),
-    ]);
+      })
+      .finally(() => setLoading(false));
+  }, [translationId, bookId, chapter]);
+  const loadLibrary = useCallback(
+    () =>
+      Promise.all([
+        api<VerseNote[]>("notes:list").then(setAllNotes),
+        api<VerseHighlight[]>("highlights:list").then(setAllHighlights),
+        api<VerseBookmarkRef[]>("bookmarks:list").then(setAllBookmarks),
+      ]),
+    [],
+  );
   useEffect(() => {
     void api<BibleTranslation[]>("bible:translations").then(setTranslations);
   }, []);
@@ -170,10 +178,10 @@ export default function Reader({
   }, []);
   useEffect(() => {
     if (!isQuizPassage) void loadLibrary();
-  }, [isQuizPassage]);
+  }, [isQuizPassage, loadLibrary]);
   useEffect(() => {
     if (libraryOpen && !isQuizPassage) void loadLibrary();
-  }, [libraryOpen, isQuizPassage]);
+  }, [libraryOpen, isQuizPassage, loadLibrary]);
   useEffect(() => {
     if (!notesFlash) return;
     const t = setTimeout(() => setNotesFlash(null), 2500);
@@ -264,7 +272,7 @@ export default function Reader({
   }, [actionVerse]);
   useEffect(() => {
     if (locationReady) void load();
-  }, [translationId, bookId, chapter, locationReady]);
+  }, [load, locationReady]);
   useEffect(() => {
     if (!initial || !verses.length) return;
     const frame = requestAnimationFrame(() =>
@@ -309,16 +317,22 @@ export default function Reader({
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
+      searchError.clear();
       return;
     }
     const timer = setTimeout(() => {
       setSearching(true);
-      api<VerseSearchResult[]>("bible:search", { query, translationId })
-        .then(setResults)
+      void searchError
+        .wrap(
+          api<VerseSearchResult[]>("bible:search", { query, translationId }),
+        )
+        .then((result) => {
+          if (result) setResults(result);
+        })
         .finally(() => setSearching(false));
     }, 250);
     return () => clearTimeout(timer);
-  }, [query, translationId]);
+  }, [query, translationId, searchError]);
   useEffect(() => {
     const keys = (event: KeyboardEvent) => {
       if ((event.target as HTMLElement)?.matches("input,select")) return;
@@ -327,7 +341,10 @@ export default function Reader({
     };
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
-  });
+    // move() and the navigation state it reads are stable for the lifetime
+    // of this component — bind once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   function openLocation(
     nextBook: string,
     nextChapter: number,
@@ -954,7 +971,12 @@ export default function Reader({
               ? "Searching…"
               : `${results.length}${results.length === 100 ? "+" : ""} results`}
           </b>
-          {!searching && results.length === 0 && (
+          {searchError.error && (
+            <p className="form-error" role="alert">
+              {searchError.error.message}
+            </p>
+          )}
+          {!searching && !searchError.error && results.length === 0 && (
             <p>No verses found. Try another word, phrase, or reference.</p>
           )}
           {results.map((result) => (
@@ -969,6 +991,27 @@ export default function Reader({
               </strong>
               <span>{result.text}</span>
             </button>
+          ))}
+        </div>
+      ) : loading && verses.length === 0 ? (
+        <div
+          className="scripture is-loading"
+          aria-busy="true"
+          aria-live="polite"
+        >
+          {[92, 78, 88, 64].map((w) => (
+            <p
+              key={w}
+              className="skeleton-line"
+              style={{
+                height: 18,
+                margin: "12px 0",
+                borderRadius: 4,
+                background: "var(--border, #e0dccf)",
+                width: `${w}%`,
+                opacity: 0.55,
+              }}
+            />
           ))}
         </div>
       ) : verses.length ? (
