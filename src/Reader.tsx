@@ -25,6 +25,7 @@ import type {
   VerseSearchResult,
 } from "../shared/types";
 import { getPrefs } from "./prefs";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import "./reader.css";
 import "./reader-chrome.css";
 import "./annotations.css";
@@ -114,6 +115,7 @@ export default function Reader({
   const [allBookmarks, setAllBookmarks] = useState<VerseBookmarkRef[]>([]);
   const [notesBusy, setNotesBusy] = useState(false);
   const [notesFlash, setNotesFlash] = useState<string | null>(null);
+  const [confirmDeleteNote, setConfirmDeleteNote] = useState(false);
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [translationOpen, setTranslationOpen] = useState(false);
@@ -396,7 +398,11 @@ export default function Reader({
   }
   function deleteNote() {
     if (editingVerse === null) return;
-    if (!window.confirm("Do you want to delete this note?")) return;
+    setConfirmDeleteNote(true);
+  }
+  function confirmDeleteNoteNow() {
+    setConfirmDeleteNote(false);
+    if (editingVerse === null) return;
     void api("note:set", {
       bookId,
       chapter,
@@ -1201,6 +1207,16 @@ export default function Reader({
         {translation?.license ?? "Public Domain"}. Bible text is stored locally
         and works without an internet connection.
       </p>
+      <ConfirmDialog
+        open={confirmDeleteNote}
+        title="Delete note?"
+        body="This can’t be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={confirmDeleteNoteNow}
+        onCancel={() => setConfirmDeleteNote(false)}
+      />
     </section>
   );
 }

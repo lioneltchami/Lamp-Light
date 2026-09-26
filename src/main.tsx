@@ -837,6 +837,7 @@ function Chooser({
 			return "full";
 		}
 	});
+	const [startError, setStartError] = useState<string | null>(null);
 	const [book, setBook] = useState(boot.books[0]!.id),
 		[from, setFrom] = useState(1),
 		[to, setTo] = useState(1),
@@ -924,7 +925,7 @@ function Chooser({
 			chapterEnd: clampedHi,
 		})
 			.then(setSession)
-			.catch((e) => alert(e.message));
+			.catch((e) => setStartError(e.message));
 	};
 
 	const bookStat = (id: string) => stats?.books.find((x) => x.book_id === id);
@@ -1119,6 +1120,15 @@ function Chooser({
 					</button>
 				</aside>
 			</div>
+			<ConfirmDialog
+				open={startError !== null}
+				title="Couldn’t start quiz"
+				body={startError ?? ""}
+				confirmLabel="OK"
+				hideCancel
+				onConfirm={() => setStartError(null)}
+				onCancel={() => setStartError(null)}
+			/>
 		</section>
 	);
 }
