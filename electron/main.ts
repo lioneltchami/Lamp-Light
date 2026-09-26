@@ -32,6 +32,11 @@ import {
 } from "./macos.js";
 import { userMigrations } from "./migrations.js";
 import { parseNotesImport } from "../shared/notesImport.js";
+import {
+	decideDialog,
+	shouldRunCheck,
+	type UpdateStatus,
+} from "./updater-state.js";
 
 const { autoUpdater } = electronUpdater;
 // Keep the original storage location across rebrands (Bible Trivia → Lamp & Light)
@@ -206,35 +211,68 @@ function awardXp(profileId: number, amount: number, source: string) {
 		)
 		.run(randomUUID(), profileId, amount, source, now());
 }
+// Module-level singleton so the auto-updater wiring is registered exactly
+// once for the lifetime of the app. Previously `configureAutoUpdates` was
+// called from inside `createMainWindow` and re-registered listeners + a
+// new `setInterval` every time the user re-opened via the macOS Dock after
+// closing all windows (`app.on("activate")`).
+let updaterWired = false;
+let updaterStatus: UpdateStatus = { state: "up-to-date" };
+let updaterChecking = false;
+let updaterLastNotifiedVersion: string | undefined;
+let updaterRecheckRequested = false;
+let updaterQuitInProgress = false;
+let updaterRecheckTimer: NodeJS.Timeout | undefined;
+function publishStatus(win: InstanceType<typeof BrowserWindow>, next: UpdateStatus) {
+	updaterStatus = next;
+	if (!win.isDestroyed()) win.webContents.send("update:status", next);
+}
+async function runUpdaterCheck(
+	win: InstanceType<typeof BrowserWindow>,
+	forced: boolean,
+): Promise<UpdateStatus> {
+	if (
+		!shouldRunCheck({
+			isPackaged: app.isPackaged,
+			checking: updaterChecking,
+			statusState: updaterStatus.state,
+			forced,
+		})
+	) {
+		return updaterStatus;
+	}
+	updaterChecking = true;
+	publishStatus(win, { state: "checking" });
+	try {
+		await autoUpdater.checkForUpdates();
+	} catch {
+		/* The updater error event publishes the status. */
+	} finally {
+		updaterChecking = false;
+	}
+	return updaterStatus;
+}
+function armRecheck(win: InstanceType<typeof BrowserWindow>) {
+	if (updaterRecheckTimer) clearTimeout(updaterRecheckTimer);
+	updaterRecheckTimer = setTimeout(() => {
+		void runUpdaterCheck(win, false).finally(() => armRecheck(win));
+	}, 60 * 60 * 1000);
+}
 function configureAutoUpdates(win: InstanceType<typeof BrowserWindow>) {
-	type UpdateState = {
-		state: "checking" | "up-to-date" | "available" | "downloaded" | "error";
-		version?: string;
-	};
-	let status: UpdateState = app.isPackaged
-		? { state: "checking" }
-		: { state: "up-to-date" };
-	let checking = false;
-	const publish = (next: UpdateState) => {
-		status = next;
-		if (!win.isDestroyed()) win.webContents.send("update:status", status);
-	};
-	const check = async () => {
-		if (!app.isPackaged || checking) return status;
-		checking = true;
-		publish({ state: "checking" });
-		try {
-			await autoUpdater.checkForUpdates();
-		} catch {
-			/* The updater error event publishes the status. */
-		} finally {
-			checking = false;
-		}
-		return status;
-	};
-	ipcMain.handle("update:status", () => status);
-	ipcMain.handle("update:check", () => check());
+	updaterStatus = app.isPackaged ? { state: "checking" } : { state: "up-to-date" };
+
+	const publish = (next: UpdateStatus) => publishStatus(win, next);
+	const check = (forced = false) => runUpdaterCheck(win, forced);
+
+	ipcMain.handle("update:status", () => updaterStatus);
+	ipcMain.handle("update:check", (_event, payload?: { force?: boolean }) =>
+		check(Boolean(payload?.force)),
+	);
+
 	if (!app.isPackaged) return;
+	if (updaterWired) return;
+	updaterWired = true;
+
 	autoUpdater.autoDownload = true;
 	autoUpdater.autoInstallOnAppQuit = true;
 	autoUpdater.on("checking-for-update", () => publish({ state: "checking" }));
@@ -246,6 +284,19 @@ function configureAutoUpdates(win: InstanceType<typeof BrowserWindow>) {
 	);
 	autoUpdater.on("update-downloaded", async (info) => {
 		publish({ state: "downloaded", version: info.version });
+
+		const decision = decideDialog({
+			version: info.version,
+			lastNotifiedVersion: updaterLastNotifiedVersion,
+			recheckRequested: updaterRecheckRequested,
+			quitInProgress: updaterQuitInProgress,
+		});
+		// Consume the recheck request regardless — it was either honored now
+		// or explicitly suppressed by a quit in progress.
+		updaterRecheckRequested = false;
+		if (decision === "suppress") return;
+
+		updaterLastNotifiedVersion = info.version;
 		const result = await electron.dialog.showMessageBox(win, {
 			type: "info",
 			title: "Update ready",
@@ -256,14 +307,40 @@ function configureAutoUpdates(win: InstanceType<typeof BrowserWindow>) {
 			defaultId: 0,
 			cancelId: 1,
 		});
-		if (result.response === 0) autoUpdater.quitAndInstall(false, true);
+		if (result.response !== 0) return;
+
+		updaterQuitInProgress = true;
+		autoUpdater.quitAndInstall(false, true);
+
+		// macOS safety net: `MacUpdater.quitAndInstall()` can silently no-op
+		// when Squirrel.Mac hasn't finished its internal download yet (the
+		// `squirrelDownloadedUpdate` flag is false at click time in the
+		// common case). If the window is still alive a few seconds later,
+		// force-quit so we don't strand the user on the old version with a
+		// pending cached update that re-fires the dialog on next launch.
+		setTimeout(() => {
+			if (!win.isDestroyed() && updaterQuitInProgress) {
+				console.warn(
+					"[updater] quitAndInstall did not terminate the app; forcing app.quit()",
+				);
+				app.quit();
+			}
+		}, 4000);
 	});
 	autoUpdater.on("error", (error) => {
 		publish({ state: "error" });
 		console.error("Automatic update error:", error);
 	});
-	win.webContents.once("did-finish-load", () => void check());
-	setInterval(() => void check(), 60 * 60 * 1000);
+
+	// Kick off an initial check on the next tick so the renderer can subscribe
+	// first. We deliberately do NOT piggy-back on `did-finish-load`: that
+	// listener fires on every renderer navigation, and a `checkForUpdates`
+	// during the cache-hit window would re-fire `update-downloaded` and (with
+	// our new guard) just no-op, but it's wasted work and noisy.
+	setImmediate(() => {
+		void runUpdaterCheck(win, false);
+		armRecheck(win);
+	});
 }
 function registerBibleSearch() {
 	ipcMain.handle("bible:translations", () =>

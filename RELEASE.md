@@ -38,6 +38,16 @@ Optional: `feature/…` → PR → `dev` when work is large or parallel. Otherwi
    - Mac: `*.dmg`, `*.zip` (zip is what auto-update uses), `latest-mac.yml`, `.blockmap`
 7. **Smoke update path** on an older installed build.
 
+   **Important:** the in-app "Restart and update" dialog only works when the
+   running app lives in **`/Applications`** (or another path Squirrel.Mac can
+   replace in place). If you're testing against a freshly-mounted DMG or a
+   build dragged out of `~/Downloads`, drag the `.app` to `/Applications`
+   first — otherwise Squirrel.Mac will silently fail the swap, the old
+   version will re-launch, and the dialog will keep re-appearing because the
+   cached update is still valid. On macOS, `npm run dist` followed by
+   `cp -R "release/mac-arm64/Lamp Light.app" /Applications/` is the
+   minimum-flow smoke test.
+
 Local solidify (optional but wise before the version bump):
 
 ```bash
