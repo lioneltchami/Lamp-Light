@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 export type AsyncError = { message: string };
 
@@ -16,6 +16,10 @@ function errorMessage(e: unknown): string {
  * the promise, clears any prior error on success, and records a structured
  * `AsyncError` on failure. `clear` is exposed for explicit dismissal (e.g.
  * retry buttons).
+ *
+ * The returned object identity is stable across renders (memoized on `error`)
+ * so consumers can safely use it in effect dependency arrays without
+ * retriggering every render.
  */
 export function useAsyncError(): {
 	error: AsyncError | null;
@@ -37,5 +41,5 @@ export function useAsyncError(): {
 		},
 		[],
 	);
-	return { error, wrap, clear };
+	return useMemo(() => ({ error, wrap, clear }), [error, wrap, clear]);
 }

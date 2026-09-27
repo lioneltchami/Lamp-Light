@@ -1,7 +1,13 @@
 # Security
 
-If you've found a vulnerability in Lamp & Light, please report it privately to:
-<lionel.tchami@example.com>  ← replace with your actual contact before publishing
+If you've found a vulnerability in Lamp & Light, please report it privately.
+
+**Preferred:** open a GitHub Security Advisory at
+<https://github.com/lioneltchami/Lamp-Light/security/advisories/new>.
+This routes privately to the maintainer and supports coordinated disclosure.
+
+**Or email:** see the maintainer profile at <https://github.com/lioneltchami>
+for the current security contact address.
 
 Please **do not** open a public GitHub issue for security problems.
 

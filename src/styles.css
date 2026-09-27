@@ -1519,3 +1519,15 @@ main {
   outline: 2px solid var(--green);
   outline-offset: 2px;
 }
+.confirm-actions button.danger {
+  background: #b54141;
+  color: #fff;
+  border-color: #b54141;
+}
+.confirm-actions button.danger:hover {
+  background: #953535;
+  border-color: #953535;
+}
+.confirm-actions button.danger:focus-visible {
+  outline-color: #b54141;
+}

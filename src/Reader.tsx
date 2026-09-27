@@ -133,6 +133,14 @@ export default function Reader({
     () => books.find((item) => item.id === bookId) ?? books[0],
     [books, bookId],
   );
+  // Refs for the keyboard listener — bind once on mount, read latest values on press.
+  // Without this, navigating to a new chapter leaves the listener bound to chapter 1.
+  const bookRef = useRef(book);
+  const chapterRef = useRef(chapter);
+  const booksRef = useRef(books);
+  useEffect(() => { bookRef.current = book; }, [book]);
+  useEffect(() => { chapterRef.current = chapter; }, [chapter]);
+  useEffect(() => { booksRef.current = books; }, [books]);
   const otBooks = useMemo(
     () => books.filter((item) => item.testament === "OT"),
     [books],
@@ -336,13 +344,16 @@ export default function Reader({
   useEffect(() => {
     const keys = (event: KeyboardEvent) => {
       if ((event.target as HTMLElement)?.matches("input,select")) return;
-      if (event.key === "ArrowLeft") move(-1);
-      if (event.key === "ArrowRight") move(1);
+      // Read latest values via refs — listener is bound once on mount.
+      const b = bookRef.current;
+      const c = chapterRef.current;
+      const bs = booksRef.current;
+      if (!b || !bs.length) return;
+      if (event.key === "ArrowLeft") moveWith(c, b, bs, -1);
+      if (event.key === "ArrowRight") moveWith(c, b, bs, 1);
     };
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
-    // move() and the navigation state it reads are stable for the lifetime
-    // of this component — bind once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   function openLocation(
@@ -361,15 +372,23 @@ export default function Reader({
       window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function move(direction: number) {
-    let nextChapter = chapter + direction,
-      nextBook = book;
+    moveWith(chapter, book, books, direction);
+  }
+  function moveWith(
+    currentChapter: number,
+    currentBook: Book,
+    allBooks: Book[],
+    direction: number,
+  ) {
+    let nextChapter = currentChapter + direction,
+      nextBook = currentBook;
     if (nextChapter < 1) {
-      const previous = books[book.order - 2];
+      const previous = allBooks[currentBook.order - 2];
       if (!previous) return;
       nextBook = previous;
       nextChapter = previous.chapters;
-    } else if (nextChapter > book.chapters) {
-      const following = books[book.order];
+    } else if (nextChapter > currentBook.chapters) {
+      const following = allBooks[currentBook.order];
       if (!following) return;
       nextBook = following;
       nextChapter = 1;
