@@ -119,6 +119,20 @@ Content DB is built into Electron `userData` (`selah-content.sqlite`). Profiles 
 
 Question IDs in the bank are permanent — never reuse an ID.
 
+## Troubleshooting
+
+**"Restart and update" doesn't do anything**
+Make sure the app is installed in `/Applications`. Squirrel.Mac can't replace the bundle from a mounted DMG, `~/Downloads`, or any other writable-but-non-standard location. Drag the app from the DMG to `/Applications` and try again.
+
+**Update check shows "Error" with no detail**
+Check Settings → About for the current version. If you're already on the latest, the error is most often a transient network blip — close and reopen the app to retry.
+
+**Database locked / "Another instance may be running"**
+Only one Lamp & Light window can have the profile database open. Quit the running app fully (Cmd+Q on Mac, Alt+F4 on Windows) before opening another copy.
+
+**Auto-update downloaded but won't install**
+Quit the app from the menu (Lamp & Light → Quit, not Cmd+W). The update installs on next launch.
+
 ## Content policy
 
 Bundled BSB and WEB are public domain. KJV is public domain outside the United Kingdom (Crown letters patent). Do not change a translation’s verse text while presenting it under that translation’s name. See [`content/LICENSES.md`](./content/LICENSES.md).

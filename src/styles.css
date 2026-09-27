@@ -1476,3 +1476,58 @@ main {
     padding: 14px 16px;
   }
 }
+
+/* In-app confirmation / alert dialog (replaces native alert/confirm). */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(22, 27, 24, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+.confirm-card {
+  background: var(--paper);
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 14px 40px var(--shadow);
+}
+.confirm-title {
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+  font-family: "Libre Caslon Display", Georgia, serif;
+  font-weight: 400;
+  color: var(--ink);
+}
+.confirm-body {
+  margin: 0 0 20px;
+  color: var(--muted);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+.confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+.confirm-actions button:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+.confirm-actions button.danger {
+  background: #b54141;
+  color: #fff;
+  border-color: #b54141;
+}
+.confirm-actions button.danger:hover {
+  background: #953535;
+  border-color: #953535;
+}
+.confirm-actions button.danger:focus-visible {
+  outline-color: #b54141;
+}

@@ -34,6 +34,7 @@ import {
 } from "./onlineService";
 import "./online.css";
 import CustomGame from "./CustomGame";
+import { useAsyncError } from "./hooks/useAsyncError";
 
 type Section = "account" | "friends" | "games";
 type SyncState = "offline" | "attention" | "syncing" | "synced";
@@ -65,6 +66,7 @@ export default function OnlineLive({
 	const [inviteCount, setInviteCount] = useState(0);
 	const [requestCount, setRequestCount] = useState(0);
 	const autoSynced = useRef(false);
+	const friendsError = useAsyncError();
 	const reportInvites = useCallback((n: number) => setInviteCount(n), []);
 	const reportRequests = useCallback((n: number) => setRequestCount(n), []);
 
@@ -99,8 +101,13 @@ export default function OnlineLive({
 					}
 				}
 			})
-			.catch(() => setSync("attention"));
-	}, []);
+			.catch((err: unknown) => {
+				// restore failure shouldn't kill the page — surface in the
+				// friends pill so the user can retry.
+				setSync("attention");
+				void friendsError.wrap(Promise.reject(err));
+			});
+	}, [friendsError]);
 
 	useEffect(() => {
 		if (!account) {
@@ -114,8 +121,9 @@ export default function OnlineLive({
 				.then((items) => {
 					if (active) setInviteCount(items.length);
 				})
-				.catch(() => {
-					/* badge is best-effort */
+				.catch((err: unknown) => {
+					if (!active) return;
+					friendsError.wrap(Promise.reject(err));
 				});
 			void listFriendConnections()
 				.then((items) => {
@@ -124,8 +132,9 @@ export default function OnlineLive({
 							items.filter((i) => i.direction === "incoming").length,
 						);
 				})
-				.catch(() => {
-					/* badge is best-effort */
+				.catch((err: unknown) => {
+					if (!active) return;
+					friendsError.wrap(Promise.reject(err));
 				});
 		};
 		load();
@@ -134,12 +143,16 @@ export default function OnlineLive({
 			active = false;
 			clearInterval(timer);
 		};
-	}, [account]);
+	}, [account, friendsError]);
 
 	useEffect(() => {
 		if (account)
-			void window.lampLight.invoke("profile:link-online", account.onlineUserId);
-	}, [account, profile.id]);
+			void window.lampLight
+				.invoke("profile:link-online", account.onlineUserId)
+				.catch((err: unknown) => {
+					friendsError.wrap(Promise.reject(err));
+				});
+	}, [account, profile.id, friendsError]);
 
 	return (
 		<section className="page online-page">
@@ -160,6 +173,24 @@ export default function OnlineLive({
 					{account ? syncLabel(sync) : "Offline"}
 				</span>
 			</div>
+			{friendsError.error && (
+				<div
+					className="preview-pill sync-attention"
+					role="status"
+					aria-live="polite"
+				>
+					<span />
+					Friends unavailable — retrying
+					<button
+						type="button"
+						className="link-button"
+						onClick={() => friendsError.clear()}
+						style={{ marginLeft: 8 }}
+					>
+						Retry
+					</button>
+				</div>
+			)}
 			<nav className="online-nav" aria-label="Online sections">
 				{(
 					[
@@ -548,6 +579,7 @@ function Friends({
 	onInviteCount?: (n: number) => void;
 	goGames: () => void;
 }) {
+	const friendsError = useAsyncError();
 	const [items, setItems] = useState<FriendConnection[]>([]),
 		[invites, setInvites] = useState<GameInvitation[]>([]),
 		[code, setCode] = useState(""),
@@ -573,16 +605,23 @@ function Friends({
 				setInvites(list);
 				onInviteCount?.(list.length);
 			})
-			.catch(() => {
-				/* optional strip */
-			});
+			.catch((e: unknown) => friendsError.wrap(Promise.reject(e)));
 	useEffect(() => {
 		void load();
 		void loadInvites();
 		const timer = setInterval(() => void loadInvites(), 5000);
 		return () => clearInterval(timer);
-	}, []);
-	useEffect(() => subscribeToOnlineUsers(userId, setOnlineUserIds), [userId]);
+	}, [friendsError]);
+	useEffect(() => {
+		try {
+			return subscribeToOnlineUsers(userId, setOnlineUserIds);
+		} catch (e) {
+			// subscribeToOnlineUsers is synchronous, but guard against any throw
+			// so a presence-channel failure doesn't crash the friends view.
+			console.error("subscribeToOnlineUsers failed", e);
+			return undefined;
+		}
+	}, [userId]);
 	const act = async (action: () => Promise<void>, success: string) => {
 		setMessage("");
 		try {
@@ -604,6 +643,11 @@ function Friends({
 	};
 	return (
 		<div className="friends-page">
+			{friendsError.error && (
+				<p className="form-error" role="alert">
+					{friendsError.error.message}
+				</p>
+			)}
 			<section className="friend-code-card card">
 				<span className="friend-code-label">Your friend code</span>
 				<strong className="friend-code-value">{friendCode}</strong>
