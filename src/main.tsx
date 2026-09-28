@@ -583,12 +583,15 @@ function ProfileGate({
 						.filter((a) => a.unlockLevel === 1)
 						.map((a) => (
 							<button
+								type="button"
 								title={a.name}
+								aria-label={a.name}
 								className={avatar === a.id ? "chosen" : ""}
+								aria-pressed={avatar === a.id}
 								onClick={() => setAvatar(a.id)}
 								key={a.id}
 							>
-								{a.emoji}
+								<span aria-hidden>{a.emoji}</span>
 							</button>
 						))}
 				</div>
@@ -1415,6 +1418,7 @@ function LegacyReader({
 									/>
 								))}
 								<button
+									aria-label={`Remove highlight from verse ${v.verse}`}
 									onClick={() =>
 										api("highlight:set", {
 											bookId,
@@ -1887,11 +1891,13 @@ function SettingsPage({
 									<button
 										type="button"
 										title={a.name}
+										aria-label={a.name}
+										aria-pressed={newAvatar === a.id}
 										className={newAvatar === a.id ? "chosen" : ""}
 										onClick={() => setNewAvatar(a.id)}
 										key={a.id}
 									>
-										{a.emoji}
+										<span aria-hidden>{a.emoji}</span>
 									</button>
 								))}
 						</div>
@@ -2852,6 +2858,7 @@ function Profile({
 										? `${a.name}, unlocks at level ${a.unlockLevel}`
 										: `Choose ${a.name}`
 								}
+								aria-pressed={!locked && selected}
 							>
 								<span>{a.emoji}</span>
 								<b>{a.name}</b>
