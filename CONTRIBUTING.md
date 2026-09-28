@@ -15,15 +15,15 @@ npm run dev       # starts vite + electron with hot-reload
 | --- | --- |
 | `dev` | Default. All day-to-day work. Direct push allowed. |
 | `main` | Protected. PR from `dev` only. Tagged releases come from here. |
-| `feature/*`, `fix/*` | Optional. Use for parallel or risky work, then PR into `dev`. |
+| `feature/*` | Optional. Use for parallel or risky work, then PR into `dev`. |
 
 See `README.md` for the full flow.
 
 ## Before opening a PR
 
 1. `npm run check` (typecheck both renderer and electron)
-2. `npm test` (vitest — expect 50+ tests; the `content.test.ts` 5s timeout is pre-existing and unrelated to your changes)
-3. If you changed any IPC channel name, update `verify-packaged-app.mjs` to match.
+2. `npm test` — all tests pass, and the pass count is at least the number on `main`. Add tests for anything you change; don't let the count go down.
+3. If you changed any IPC channel name, update the `ALLOWED_INVOKE_CHANNELS` allowlist in `electron/preload.ts` — that is the source of truth. `electron/preload.cjs` is a hand-committed CommonJS copy, so keep it in sync when you change `electron/preload.ts`. The channel allowlist does **not** live in the verify script.
 4. If you changed `electron/main.ts`, rebuild before testing the installer path:
    ```bash
    npm run build
