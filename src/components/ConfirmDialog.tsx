@@ -41,6 +41,16 @@ export function ConfirmDialog({
 	// A page can mount several ConfirmDialogs at once, so the title id has to be
 	// instance-unique or aria-labelledby points at the wrong element.
 	const titleId = useId();
+	// Every call site passes `onCancel` as an inline arrow, so it is a new
+	// function on every parent render. Listing it as an effect dependency would
+	// tear the trap down and rebuild it on each render, and the cleanup's focus
+	// restore would fire mid-dialog - throwing focus back out to the trigger
+	// behind the modal. Read it through a ref instead and keep the effect
+	// keyed on `open` alone, so it runs exactly once per open/close.
+	const onCancelRef = useRef(onCancel);
+	useEffect(() => {
+		onCancelRef.current = onCancel;
+	});
 
 	useEffect(() => {
 		if (!open) return undefined;
@@ -55,7 +65,7 @@ export function ConfirmDialog({
 			if (e.key === "Escape") {
 				e.preventDefault();
 				e.stopPropagation();
-				onCancel();
+				onCancelRef.current();
 				return;
 			}
 			if (e.key !== "Tab") return;
@@ -93,7 +103,7 @@ export function ConfirmDialog({
 				previouslyFocused.focus();
 			}
 		};
-	}, [open, onCancel]);
+	}, [open]);
 
 	if (!open) return null;
 

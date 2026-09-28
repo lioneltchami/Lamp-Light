@@ -245,7 +245,10 @@ export default function CustomGame({
             <p>Enter the host’s room code.</p>
             <div>
               <input
+                id="join-code"
                 aria-label="Room code"
+                aria-describedby={joinError ? "join-code-error" : undefined}
+                aria-invalid={joinError ? true : undefined}
                 maxLength={6}
                 value={joinCode}
                 onChange={(e) => {
@@ -274,7 +277,7 @@ export default function CustomGame({
               </button>
             </div>
             {joinError && (
-              <p className="form-error" role="alert">
+              <p id="join-code-error" className="form-error" role="alert">
                 {joinError}
               </p>
             )}
