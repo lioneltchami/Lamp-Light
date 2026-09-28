@@ -31,6 +31,11 @@ import {
 	showDailyReminderNotification,
 } from "./macos.js";
 import { userMigrations } from "./migrations.js";
+import {
+	appendDiagnostic,
+	exportDiagnosticBundle,
+	readDiagnostics,
+} from "./diagnostics.js";
 import { parseNotesImport } from "../shared/notesImport.js";
 import {
 	decideDialog,
@@ -46,6 +51,15 @@ const { autoUpdater } = electronUpdater;
 // native error box instead of silently terminating the electron process.
 process.on("uncaughtException", (err) => {
 	console.error("[uncaughtException]", err);
+	// Persist before the dialog: this is the one place we may be milliseconds
+	// from the process going away, and the log is the only evidence a crash
+	// report will ever have. Sync write, and it never throws.
+	appendDiagnostic({
+		level: "error",
+		scope: "startup",
+		message: "uncaughtException in main process",
+		detail: err instanceof Error ? (err.stack ?? err.message) : String(err),
+	});
 	try {
 		electron.dialog.showErrorBox(
 			"Lamp & Light hit an unexpected error",
@@ -62,6 +76,15 @@ process.on(
 		// are usually already logged by the underlying call site, and a modal
 		// per rejection would be hostile. Just record the reason for the logs.
 		console.error("[unhandledRejection]", reason);
+		appendDiagnostic({
+			level: "warn",
+			scope: "startup",
+			message: "unhandledRejection in main process",
+			detail:
+				reason instanceof Error
+					? (reason.stack ?? reason.message)
+					: String(reason),
+		});
 	},
 );
 // Keep the original storage location across rebrands (Bible Trivia → Lamp & Light)
@@ -183,6 +206,18 @@ ipcMain.handle("app:info", () => ({
 	userDataPath: app.getPath("userData"),
 	name: app.getName(),
 }));
+ipcMain.handle("diagnostics:read", (_event, payload?: { limit?: number }) =>
+	readDiagnostics(payload?.limit),
+);
+ipcMain.handle("diagnostics:export", async (_event, payload: unknown) =>
+	exportDiagnosticBundle(
+		typeof payload === "string"
+			? payload
+			: String(
+					(payload as { destPath?: unknown } | null | undefined)?.destPath ?? "",
+				),
+	),
+);
 ipcMain.handle("app:reveal-data", async () => {
 	const dir = app.getPath("userData");
 	fs.mkdirSync(dir, { recursive: true });
@@ -357,6 +392,12 @@ function configureAutoUpdates(win: InstanceType<typeof BrowserWindow>) {
 			(error && (error as { message?: string }).message) || String(error);
 		publish({ state: "error", reason });
 		console.error("Automatic update error:", error);
+		appendDiagnostic({
+			level: "error",
+			scope: "updater",
+			message: "autoUpdater error",
+			detail: error instanceof Error ? error.stack : String(error),
+		});
 	});
 
 	// Kick off an initial check on the next tick so the renderer can subscribe
