@@ -34,6 +34,20 @@ jobs:
       - name: Compile Electron + Vite (packaging inputs)
         run: npm run build
 
+      - name: Verify committed preload.cjs is not stale
+        run: |
+          set -euo pipefail
+          # electron/preload.cjs is generated from electron/preload.ts and is
+          # committed to git (it ships inside the asar). `npm run build` above
+          # already regenerated it, so any diff here means the committed file
+          # is out of sync with the TypeScript source.
+          if ! git diff --exit-code -- electron/preload.cjs; then
+            echo "::error file=electron/preload.cjs::electron/preload.cjs is out of sync with electron/preload.ts. Run 'npm run gen:preload' and commit the result."
+            git --no-pager diff -- electron/preload.cjs
+            exit 1
+          fi
+          echo "OK: electron/preload.cjs matches electron/preload.ts"
+
       - name: Smoke-check built Electron bundle
         run: |
           set -euo pipefail
