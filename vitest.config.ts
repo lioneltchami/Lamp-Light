@@ -22,6 +22,10 @@ export default defineConfig({
 			"**/dist-electron/**",
 			"**/release/**",
 			"**/website/**",
+			// Scratch trees that agents create while diffing. They contain full
+			// copies of the sources, so vitest would collect their stale tests
+			// and fail on code that no longer exists in the real tree.
+			"**/.tmp-*/**",
 		],
 	},
 });

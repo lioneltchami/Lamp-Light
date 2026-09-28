@@ -18,8 +18,8 @@ content/*.sqlite*
 # Stray build artifacts from ad-hoc asar extraction / tooling
 /main.js
 
-# Scratch files from one-off diffing during refactors
-/.tmp-*.mjs
+# Scratch files and trees from one-off diffing during refactors
+/.tmp-*
 
 # Local agent tooling
 /.agents/
