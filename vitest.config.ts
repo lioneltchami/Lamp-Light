@@ -8,12 +8,20 @@ export default defineConfig({
 		// whole suite twice — and the compiled copies read source files by
 		// relative path that don't exist under `dist-electron/`, producing
 		// spurious failures. Exclude build output.
-		include: ["electron/**/*.test.ts", "src/**/*.test.ts", "shared/**/*.test.ts"],
+		//
+		// The include is deliberately broad (every *.test.ts in the app) rather
+		// than an allowlist of directories, so a new test under scripts/ or
+		// anywhere else is picked up automatically instead of silently never
+		// running. `website/` is a separate package with its own vite config and
+		// node_modules — excluded so it can grow its own runner without
+		// colliding with this one.
+		include: ["**/*.test.ts"],
 		exclude: [
 			"**/node_modules/**",
 			"**/dist/**",
 			"**/dist-electron/**",
 			"**/release/**",
+			"**/website/**",
 		],
 	},
 });
