@@ -90,7 +90,7 @@
 }
 
 .avatar-grid button.locked small {
-	color: var(--gold-eyebrow, #9a7750);
+	color: var(--a11y-eyebrow, #84684a);
 }
 
 .avatar-grid button:hover:not(:disabled) {
