@@ -10,7 +10,13 @@ import { describe, expect, it } from "vitest";
 // `electron/main.ts`. They have already drifted once, and drift is invisible
 // at runtime until the renderer hits "Channel ... is not allowed". This test
 // parses all three sources and asserts the sets agree, so a mismatch fails in
-// CI instead of in the app — whether preload.cjs is hand-edited or generated.
+// CI instead of in the app.
+//
+// `electron/preload.cjs` is generated from `electron/preload.ts` by
+// `scripts/generate-preload-cjs.mjs` — never hand-edit it. These assertions
+// still check it directly because it ships as a committed file inside the
+// asar: if someone forgets to regenerate and commit, this fails here and the
+// "Verify committed preload.cjs is not stale" CI step fails too.
 
 // Resolve paths relative to this file, then walk up to the directory that
 // actually holds `electron/main.ts`. The walk matters because `tsc -p
@@ -92,7 +98,8 @@ describe("preload allowlist", () => {
 			missing,
 			`These ipcMain.handle channels have no entry in electron/preload.ts's ` +
 				`ALLOWED_INVOKE_CHANNELS, so the renderer gets "Channel <x> is not ` +
-				`allowed". Add them to preload.ts AND preload.cjs in the same change.\n` +
+				`allowed". Add them to preload.ts, then run 'npm run gen:preload' and ` +
+				`commit the regenerated preload.cjs — never edit preload.cjs by hand.\n` +
 				`Missing: ${missing.join(", ") || "(none)"}`,
 		).toEqual([]);
 	});

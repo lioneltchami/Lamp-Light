@@ -23,7 +23,7 @@ See `README.md` for the full flow.
 
 1. `npm run check` (typecheck both renderer and electron)
 2. `npm test` — all tests pass, and the pass count is at least the number on `main`. Add tests for anything you change; don't let the count go down.
-3. If you changed any IPC channel name, update the `ALLOWED_INVOKE_CHANNELS` allowlist in `electron/preload.ts` — that is the source of truth. `electron/preload.cjs` is a hand-committed CommonJS copy, so keep it in sync when you change `electron/preload.ts`. The channel allowlist does **not** live in the verify script.
+3. If you changed any IPC channel name, update the `ALLOWED_INVOKE_CHANNELS` allowlist in `electron/preload.ts` — that is the source of truth. `electron/preload.cjs` is **generated** from `electron/preload.ts` by `scripts/generate-preload-cjs.mjs`; never hand-edit it. `npm run build` regenerates it automatically, or run `npm run gen:preload` on its own — commit the regenerated file, because CI fails if the committed copy is out of sync. The channel allowlist does **not** live in the verify script.
 4. If you changed `electron/main.ts`, rebuild before testing the installer path:
    ```bash
    npm run build
