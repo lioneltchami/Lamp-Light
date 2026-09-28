@@ -312,9 +312,20 @@ function isInside(child: string, parent: string): boolean {
  *  - no dotfile basename: never `~/.env`, `~/.bashrc`, `~/.npmrc`;
  *  - no `..` segment and no trailing separator: reject directory-as-file and
  *    parent traversal outright;
+ *  - no backslash: the checks below already treat `\` as a separator, so a
+ *    path that means something different to each of those checks (a Windows
+ *    payload on a POSIX host) is refused rather than half-interpreted;
  *  - never inside `userData`: the app's SQLite profile lives there, and a log
- *    exported over `selah-user.sqlite` would destroy the user's progress. The
- *    realpath pass closes the same hole via a symlinked parent directory.
+ *    exported over `selah-user.sqlite` would destroy the user's progress. This
+ *    is checked three ways, because each closes a hole the others leave:
+ *      1. the literal path (cheap, catches the obvious case);
+ *      2. the realpath of the destination's PARENT, which catches a symlinked
+ *         parent directory that points into `userData`;
+ *      3. the realpath of `userData` itself, which catches a user who moved
+ *         or relinked their app data so the returned path is not the real one;
+ *    and the destination may not itself BE a symlink, because `writeFile`
+ *    follows one. A `bundle.txt` symlinked at the userData profile database
+ *    passes every string check above and still destroys the profile.
  */
 function validateExportPath(raw: unknown): ExportPathCheck {
 	const reject = (error: string): ExportPathCheck => ({ ok: false, error });
@@ -337,6 +348,12 @@ function validateExportPath(raw: unknown): ExportPathCheck {
 	if (dest.split(/[\\/]+/).includes("..")) {
 		return reject("Destination may not contain '..'.");
 	}
+	// We split on both separators above, so refuse the ambiguous input outright
+	// rather than let a Windows-shaped payload mean one thing to `path` and
+	// another to the `..` scan.
+	if (dest.includes("\\")) {
+		return reject("Destination may not contain a backslash.");
+	}
 	const base = path.basename(dest);
 	if (!base || base === "." || base === "..") {
 		return reject("Destination must include a file name.");
@@ -349,14 +366,39 @@ function validateExportPath(raw: unknown): ExportPathCheck {
 		return reject("Destination must end in .txt or .log.");
 	}
 	const resolved = path.resolve(dest);
+	// `userData` is a real directory the user may have relocated, so the
+	// literal path from `app.getPath` is not necessarily the path the
+	// filesystem resolves to. Compare against both.
 	const data = userDataDir();
-	if (isInside(resolved, data)) {
-		return reject("Destination may not be inside the app's data folder.");
+	let realData = data;
+	try {
+		realData = fs.realpathSync(data);
+	} catch {
+		/* userData may not exist yet; the literal check below still applies. */
+	}
+	for (const forbidden of new Set([data, realData])) {
+		if (isInside(resolved, forbidden)) {
+			return reject("Destination may not be inside the app's data folder.");
+		}
+	}
+	// A symlink AT the destination is followed by the write, so a
+	// `notes.txt` pointing at the profile database passes every check above
+	// (its parent is fine, its name is fine) and then clobbers the file it
+	// points at. Refuse it here and again at open time via O_NOFOLLOW, so the
+	// check cannot be raced between validation and write.
+	try {
+		if (fs.lstatSync(resolved).isSymbolicLink()) {
+			return reject("Destination may not be a symbolic link.");
+		}
+	} catch {
+		// Destination does not exist yet - nothing to follow.
 	}
 	try {
 		const parent = fs.realpathSync(path.dirname(resolved));
-		if (isInside(path.join(parent, base), data)) {
-			return reject("Destination may not be inside the app's data folder.");
+		for (const forbidden of new Set([data, realData])) {
+			if (isInside(path.join(parent, base), forbidden)) {
+				return reject("Destination may not be inside the app's data folder.");
+			}
 		}
 	} catch {
 		// Parent does not exist yet; the resolved-path check above still applied.
@@ -412,7 +454,25 @@ export async function exportDiagnosticBundle(destPath: string): Promise<{
 		} catch {
 			// No log yet - still export the environment section.
 		}
-		await fs.promises.writeFile(check.path, buildBundle(log), "utf8");
+		// Write through an explicit fd with O_NOFOLLOW rather than
+		// `fs.promises.writeFile`, so a symlink swapped in after the lstat
+		// check still fails (ELOOP) instead of silently redirecting the bundle
+		// onto the file it points at. 0o600 because the bundle carries error
+		// text that need not be world-readable.
+		const flags =
+			fs.constants.O_WRONLY |
+			fs.constants.O_CREAT |
+			fs.constants.O_TRUNC |
+			// Undefined on Windows, where there is no symlink-following
+			// equivalent to guard with; the lstat check above is the guard
+			// there.
+			(fs.constants.O_NOFOLLOW ?? 0);
+		const handle = await fs.promises.open(check.path, flags, 0o600);
+		try {
+			await handle.writeFile(buildBundle(log), "utf8");
+		} finally {
+			await handle.close();
+		}
 		return { ok: true, path: check.path };
 	} catch (error) {
 		return { ok: false, error: String(error) };

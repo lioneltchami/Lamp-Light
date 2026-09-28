@@ -261,10 +261,14 @@ export async function inviteFriendToGame(code:string,friendId:string){const {err
 export async function listGameInvitations(){const {data,error}=await withRetry(async()=>await supabase.rpc("list_game_invitations"),{shouldRetry:isRetryableRead});if(error)throw error;return (data??[]) as GameInvitation[]}
 // Pure read — retried, but on a deliberately smaller budget than the other
 // reads. CustomGame drives the whole round from this and re-polls it every
-// 750ms. A default 3-attempt chain can outlive the next tick, so during an
-// outage the chains stack: a 1x request rate becomes ~3x against a project
-// that is already the thing falling over. Two attempts caps that at ~1.5x and
-// still absorbs a single dropped packet, which is the common case.
+// 750ms, so the request rate here is the one that can actually hurt a project
+// that is already struggling. Two attempts bounds the worst case at 2x the
+// baseline request rate (each chain issues at most two requests), against the
+// 3x a default budget would allow, and still absorbs a single dropped packet,
+// which is the common case. The worst-case 2x is only reachable while requests
+// are failing; `load` in CustomGame additionally drops a tick whose chain is
+// still in flight, so chains cannot pile up and the sustained rate stays at
+// or below the 1x baseline.
 export async function getMultiplayerState(code:string){const {data,error}=await withRetry(async()=>await supabase.rpc("multiplayer_game_state",{code_input:code}),{shouldRetry:isRetryableRead,attempts:2,baseDelayMs:200});if(error)throw error;return data as MultiplayerState}
 
 // --- WRITES: deliberately NOT retried. See the retry policy note at the top

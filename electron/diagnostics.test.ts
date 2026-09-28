@@ -158,15 +158,23 @@ describe("diagnostics log", () => {
 	});
 
 	it("truncates an oversized detail instead of storing it whole", () => {
+		// Spaced words, NOT one long run of word characters: a 50 000-char run
+		// of `x` is caught by the token scrubber first, so the payload collapses
+		// to "[redacted-token]" and the assertion below passes without the
+		// truncation branch ever running.
 		appendDiagnostic({
 			level: "error",
 			scope: "render",
 			message: "renderer blew up",
-			detail: "x".repeat(50_000),
+			detail: "bible verse ".repeat(5000),
 		});
 
 		const [entry] = readDiagnostics();
-		expect((entry.detail ?? "").length).toBeLessThanOrEqual(2000);
+		expect(entry.detail).toBeDefined();
+		// Clamped, and marked as truncated, with the long tail actually gone.
+		expect((entry.detail ?? "").length).toBe(2000);
+		expect(entry.detail).toMatch(/…$/);
+		expect(entry.detail).not.toContain("bible verse ".repeat(300));
 	});
 
 	it("survives a truncated final line", () => {
@@ -373,5 +381,75 @@ describe("exportDiagnosticBundle", () => {
 		);
 		expect(result.ok).toBe(false);
 		expect(typeof result.error).toBe("string");
+	});
+
+	// The three cases below each defeat a DIFFERENT check, so a guard that only
+	// closes one of them still leaves the profile database writable from the
+	// renderer. They are the regression net for that.
+	describe("symlinked destinations", () => {
+		/** A file that stands in for the user's real, irreplaceable data. */
+		const precious = () => {
+			const file = path.join(sandbox, "selah-user.sqlite");
+			fs.writeFileSync(file, "REAL-PROFILE-DATA");
+			return file;
+		};
+		const intact = (file: string) =>
+			fs.readFileSync(file, "utf8") === "REAL-PROFILE-DATA";
+
+		it("refuses a symlinked parent directory that points into userData", async () => {
+			const link = path.join(os.tmpdir(), `linkdir-${process.pid}`);
+			fs.symlinkSync(sandbox, link, "dir");
+
+			const result = await exportDiagnosticBundle(path.join(link, "bundle.txt"));
+
+			expect(result.ok).toBe(false);
+			expect(result.error).toMatch(/data folder/i);
+			fs.rmSync(link, { force: true });
+		});
+
+		it("refuses a symlinked destination FILE instead of writing through it", async () => {
+			// The whole point: `innocent.txt` has a clean name, a legal
+			// extension, and a parent directory outside userData, so it passes
+			// every string check. Only refusing the symlink itself stops the
+			// write being redirected onto the profile database.
+			const db = precious();
+			const link = path.join(os.tmpdir(), `innocent-${process.pid}.txt`);
+			fs.symlinkSync(db, link);
+
+			const result = await exportDiagnosticBundle(link);
+
+			expect(result.ok).toBe(false);
+			expect(result.error).toMatch(/symbolic link/i);
+			expect(intact(db)).toBe(true);
+			fs.rmSync(link, { force: true });
+		});
+
+		it("refuses a destination reached through a symlinked userData root", async () => {
+			// A user who moved or relinked their app data: `app.getPath` returns
+			// a path that is not the real one, so comparing against the literal
+			// string alone would not recognise the real directory as userData.
+			const real = fs.mkdtempSync(path.join(os.tmpdir(), "realdata-"));
+			const alias = path.join(os.tmpdir(), `alias-${process.pid}`);
+			fs.symlinkSync(real, alias, "dir");
+			stub.userData = alias;
+
+			const result = await exportDiagnosticBundle(
+				path.join(real, "bundle.txt"),
+			);
+
+			expect(result.ok).toBe(false);
+			expect(result.error).toMatch(/data folder/i);
+			expect(fs.existsSync(path.join(real, "bundle.txt"))).toBe(false);
+			fs.rmSync(alias, { force: true });
+			fs.rmSync(real, { recursive: true, force: true });
+		});
+
+		it("still exports to a plain path outside userData", async () => {
+			// The guards above must not become a blanket refusal.
+			const dest = path.join(os.tmpdir(), `bundle-plain-${process.pid}.txt`);
+			expect((await exportDiagnosticBundle(dest)).ok).toBe(true);
+			expect(fs.readFileSync(dest, "utf8")).toContain("diagnostic bundle");
+			fs.rmSync(dest, { force: true });
+		});
 	});
 });

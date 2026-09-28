@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   Clock,
@@ -306,13 +306,27 @@ function GameRoom({ code, leave }: { code: string; leave: () => void }) {
   // useCallback so the polling effect below can depend on it honestly —
   // without it, an inline `load` in the dep array would tear down and
   // recreate the 750ms interval on every single render.
-  const load = useCallback(
-    () =>
-      getMultiplayerState(code)
-        .then(setGame)
-        .catch((e) => setError(onlineErrorMessage(e, "Game disconnected."))),
-    [code],
-  );
+  //
+  // The in-flight guard is load-bearing, not defensive tidiness. `load` can
+  // now take longer than the 750ms tick: `getMultiplayerState` retries once
+  // with up to 200ms of jitter, so a chain runs RTT + jitter + RTT. Once RTT
+  // climbs past ~275ms — which is exactly the degraded state that makes the
+  // retry fire in the first place — that outlives the tick, and without this
+  // guard every tick starts a second chain while the first is still running,
+  // so concurrent chains grow without bound for the length of the outage.
+  // Skipping the tick is the safe direction: it degrades to a slower poll
+  // rather than to more requests against a project that is already failing.
+  const loadInFlight = useRef(false);
+  const load = useCallback(() => {
+    if (loadInFlight.current) return;
+    loadInFlight.current = true;
+    return getMultiplayerState(code)
+      .then(setGame)
+      .catch((e) => setError(onlineErrorMessage(e, "Game disconnected.")))
+      .finally(() => {
+        loadInFlight.current = false;
+      });
+  }, [code]);
   // The host drives shared game state, so its clock and phase driver must keep
   // running even when this window is hidden — otherwise minimising the host's
   // window freezes the round for every other player.
