@@ -6,10 +6,10 @@ import { describe, expect, it } from "vitest";
 // WHY THIS FILE IS A SOURCE-LEVEL TEST
 //
 // v1.2.23 added process-level crash handlers and quit lifecycle hooks to
-// `electron/main.ts`. That file wires ~50 `ipcMain` handlers and touches
-// `app`, `BrowserWindow` and native modules at import time, so it cannot be
-// imported in a test without an Electron runtime. Rather than ship zero
-// coverage for the two safety nets that are supposed to stop the app from
+// `electron/main.ts`. That file wires the ~50 `ipcMain` channel registrations
+// and touches `app`, `BrowserWindow` and native modules at import time, so it
+// cannot be imported in a test without an Electron runtime. Rather than ship
+// zero coverage for the two safety nets that are supposed to stop the app from
 // dying silently, we assert the properties of the *source text*:
 //
 //   1. both `uncaughtException` and `unhandledRejection` are registered
@@ -23,6 +23,20 @@ import { describe, expect, it } from "vitest";
 // into a hard crash with no dialog. Do not delete this file as "just string
 // matching" — if you extract the handlers into a testable module, replace
 // this with real unit tests and delete this.
+//
+// STILL VALID AFTER THE main.ts SPLIT (2f0dc56). main.ts is now a
+// composition root: the IPC handler *bodies* moved to `electron/ipc/*.ts` and
+// the auto-updater to `electron/updater.ts`. Every property asserted here was
+// re-checked against the split tree and still resolves in `main.ts`:
+//   - both `process.on` registrations: main.ts, lines 64 and 84
+//   - the try/catch around `showErrorBox`: main.ts, lines 75-82
+//   - `before-quit` / `will-quit`: main.ts, lines 290 and 297
+//   - both still precede `app.whenReady()` (main.ts line 230)
+// So the assertions remain meaningful rather than vacuous. If a future change
+// moves any of these out of main.ts, re-point the matching assertion at the
+// new home — a source-text guard that reads a file the code left is theatre.
+// (`preload-allowlist.test.ts` had the opposite problem and was fixed: it
+// scanned only main.ts and now scans every main-process source file.)
 //
 // Caveat: the brace matcher below is not a parser. It is balanced-safe for
 // the current handler bodies (template-literal `${}` pairs are symmetric),

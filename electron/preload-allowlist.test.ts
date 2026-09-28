@@ -6,11 +6,19 @@ import { describe, expect, it } from "vitest";
 // Drift guard for the preload allowlist.
 //
 // `electron/preload.ts` and `electron/preload.cjs` are two files that must
-// enumerate exactly the `ipcMain.handle` channels registered in
-// `electron/main.ts`. They have already drifted once, and drift is invisible
-// at runtime until the renderer hits "Channel ... is not allowed". This test
-// parses all three sources and asserts the sets agree, so a mismatch fails in
-// CI instead of in the app.
+// enumerate exactly the `ipcMain.handle` channels registered by the main
+// process. They have already drifted once, and drift is invisible at runtime
+// until the renderer hits "Channel ... is not allowed". This test parses the
+// main-process sources and the two preload files and asserts the sets agree,
+// so a mismatch fails in CI instead of in the app.
+//
+// SCOPE: this deliberately scans *every* main-process source file under
+// `electron/`, not just `electron/main.ts`. `main.ts` is a composition root
+// and the handler bodies now live in `electron/ipc/*.ts`; a channel
+// registered in one of those modules is just as real as one registered in
+// `main.ts`, and a single-file scan would let it escape the allowlist diff
+// silently. Every registration currently lives in `main.ts`, so the scan
+// finds the same set — it just keeps finding it if that changes.
 //
 // `electron/preload.cjs` is generated from `electron/preload.ts` by
 // `scripts/generate-preload-cjs.mjs` — never hand-edit it. These assertions
@@ -42,10 +50,44 @@ const root = findRepoRoot(here);
 const read = (file: string): string =>
 	fs.readFileSync(path.join(root, file), "utf8");
 
-/** All `ipcMain.handle("chan"` / `ipcMain.on("chan"` channels in main.ts. */
-function extractIpcChannels(source: string, method: "handle" | "on"): string[] {
+/**
+ * Every main-process source file that could hold an `ipcMain` registration.
+ *
+ * Test files are excluded: temporary probe/attack harnesses and fixtures
+ * legitimately call `ipcMain.handle` against a stub, and counting those would
+ * make the allowlist diff meaningless. `dist-electron/` is never reached —
+ * `root` is the repo root, not the test's own directory (see above), and we
+ * only walk `root/electron`.
+ */
+function mainProcessSources(start: string): string[] {
+	const found: string[] = [];
+	const walk = (dir: string): void => {
+		for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+			const abs = path.join(dir, entry.name);
+			if (entry.isDirectory()) {
+				walk(abs);
+			} else if (
+				entry.name.endsWith(".ts") &&
+				!entry.name.endsWith(".test.ts")
+			) {
+				found.push(path.relative(root, abs));
+			}
+		}
+	};
+	walk(start);
+	return found.sort();
+}
+
+const mainSources = mainProcessSources(path.join(root, "electron"));
+const preloadTs = read("electron/preload.ts");
+const preloadCjs = read("electron/preload.cjs");
+
+/** All `ipcMain.handle("chan"` / `ipcMain.on("chan"` channels in the sources. */
+function extractIpcChannels(sources: string[], method: "handle" | "on"): string[] {
 	const pattern = new RegExp(`ipcMain\\.${method}\\(\\s*["'\`]([^"'\`]+)["'\`]`, "g");
-	return [...source.matchAll(pattern)].map((match) => match[1]);
+	return sources.flatMap((source) =>
+		[...source.matchAll(pattern)].map((match) => match[1]),
+	);
 }
 
 /** The string entries of the `ALLOWED_INVOKE_CHANNELS` set literal. */
@@ -64,12 +106,9 @@ function extractAllowlist(source: string, file: string): string[] {
 	);
 }
 
-const mainSource = read("electron/main.ts");
-const preloadTs = read("electron/preload.ts");
-const preloadCjs = read("electron/preload.cjs");
-
-const handleChannels = extractIpcChannels(mainSource, "handle");
-const onChannels = extractIpcChannels(mainSource, "on");
+const mainTexts = mainSources.map(read);
+const handleChannels = extractIpcChannels(mainTexts, "handle");
+const onChannels = extractIpcChannels(mainTexts, "on");
 const allowlistTs = extractAllowlist(preloadTs, "preload.ts");
 const allowlistCjs = extractAllowlist(preloadCjs, "preload.cjs");
 
@@ -79,10 +118,20 @@ const diff = (left: string[], right: string[]): string[] =>
 		.sort();
 
 describe("preload allowlist", () => {
-	it("parses a non-trivial number of channels out of main.ts", () => {
-		// Guards the regexes themselves: if `main.ts` is reformatted (template
-		// literals, `ipcMain.handle (`, a helper wrapper) these go to zero and
-		// every assertion below would pass vacuously.
+	it("scans every main-process source file, not just the composition root", () => {
+		// The scan is the guard. If it ever narrows back to `main.ts` alone, a
+		// handler registered in `electron/ipc/*.ts` would bypass the allowlist
+		// diff without a single test going red.
+		expect(mainSources).toContain("electron/main.ts");
+		expect(mainSources.some((f) => f.startsWith(`electron${path.sep}ipc${path.sep}`))).toBe(
+			true,
+		);
+	});
+
+	it("parses a non-trivial number of channels out of the sources", () => {
+		// Guards the regexes themselves: if the registrations are reformatted
+		// (template literals, `ipcMain.handle (`, a helper wrapper) these go to
+		// zero and every assertion below would pass vacuously.
 		expect(handleChannels.length).toBeGreaterThan(20);
 		expect(new Set(handleChannels).size).toBe(handleChannels.length);
 	});
@@ -118,7 +167,8 @@ describe("preload allowlist", () => {
 		const deadTs = allowlistTs.filter((c) => !handleChannels.includes(c));
 		expect(
 			deadTs,
-			`electron/preload.ts allows channels that no longer exist in main.ts. ` +
+			`electron/preload.ts allows channels that no longer exist in the main ` +
+				`process. ` +
 				`A stale entry is dead weight that hides real drift — remove it.\n` +
 				`Dead: ${deadTs.join(", ") || "(none)"}`,
 		).toEqual([]);
@@ -126,7 +176,8 @@ describe("preload allowlist", () => {
 		const deadCjs = allowlistCjs.filter((c) => !handleChannels.includes(c));
 		expect(
 			deadCjs,
-			`electron/preload.cjs allows channels that no longer exist in main.ts. ` +
+			`electron/preload.cjs allows channels that no longer exist in the main ` +
+				`process. ` +
 				`Remove the stale entry and regenerate.\nDead: ${deadCjs.join(", ") || "(none)"}`,
 		).toEqual([]);
 	});
