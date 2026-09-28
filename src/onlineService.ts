@@ -1,5 +1,41 @@
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
+import { isAbortError, withRetry } from "./lib/retry";
+
+// ---------------------------------------------------------------------------
+// Retry policy for this module
+//
+// The rule is read/write, not "important" vs "not important": `withRetry` is
+// applied to PURE READS only. A read has no side effects, so replaying it
+// after a transient Supabase blip is free and turns "the badge showed 0" into
+// "the badge recovered on its own".
+//
+// Nothing that writes is retried, and that is deliberate rather than an
+// oversight. A timed-out POST is not a failed POST: it may well have been
+// applied server-side before the response was lost, so replaying it can
+// double-apply. Concretely, blind retry here would mean a second
+// `create_multiplayer_game` for one click, an `answer_multiplayer_question`
+// scored twice, or a duplicate row in `xp_events` / `reader_sync_snapshots`.
+// Retrying is only unambiguously safe for a failure that is provably
+// pre-flight — the request never left the machine — and supabase-js does not
+// let us distinguish that from a mid-flight timeout. So the writes stay
+// un-retried and surface their error to the user, who decides.
+// ---------------------------------------------------------------------------
+
+/**
+ * Retry predicate for the reads below.
+ *
+ * Deliberately narrower than `withRetry`'s default of "retry anything": a 401
+ * (expired token) or a 403 (RLS) will fail identically every time, so retrying
+ * it just spends two extra round trips and delays the error the user is going
+ * to see anyway. Everything else — DNS blips, connection resets, 5xx, pooler
+ * timeouts — is treated as transient.
+ */
+function isRetryableRead(error: unknown): boolean {
+  if (isAbortError(error)) return false;
+  const status = (error as { status?: unknown } | null)?.status;
+  return status !== 401 && status !== 403;
+}
 
 export type AgeGroup = "under13" | "13to17" | "18plus";
 export interface OnlineAccount { onlineUserId:string;email:string;username:string;ageGroup:AgeGroup;friendCode:string;verified:boolean;admin:boolean }
@@ -32,12 +68,32 @@ async function accountFromUser(user: User): Promise<OnlineAccount> {
     age_group?: AgeGroup;
     friend_code?: string;
   };
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username, age_group, friend_code")
-    .eq("id", user.id)
-    .maybeSingle();
-  const { data: isAdmin } = await supabase.rpc("is_app_admin");
+  // These two reads drop their `error` on the floor, so a transient failure
+  // does not throw — it silently degrades the account to `null` and the user
+  // is shown as "BibleReader" with friend code "Pending" until the next
+  // restart. The retry gives the blip a chance to clear; the trailing `.catch`
+  // then falls back to exactly today's behaviour (`null`) once attempts run
+  // out, so this changes the failure *rate* but not the failure *mode*.
+  const profile = await withRetry(
+    async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("username, age_group, friend_code")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    { shouldRetry: isRetryableRead },
+  ).catch(() => null);
+  const isAdmin = await withRetry(
+    async () => {
+      const { data, error } = await supabase.rpc("is_app_admin");
+      if (error) throw error;
+      return Boolean(data);
+    },
+    { shouldRetry: isRetryableRead },
+  ).catch(() => false);
   return {
     onlineUserId: user.id,
     email: user.email ?? "",
@@ -45,7 +101,7 @@ async function accountFromUser(user: User): Promise<OnlineAccount> {
     ageGroup: profile?.age_group ?? metadata.age_group ?? "18plus",
     friendCode: profile?.friend_code ?? "Pending",
     verified: Boolean(user.email_confirmed_at),
-    admin: Boolean(isAdmin),
+    admin: isAdmin,
   };
 }
 
@@ -81,7 +137,12 @@ export async function sendPasswordRecovery(email: string) {
 }
 
 export async function isUsernameAvailable(username: string) {
-  const { data, error } = await supabase.rpc("is_username_available", { candidate: username.trim() });
+  // Pure read, so it is safe to replay. The `async … await` is required: the
+  // Supabase builders are thenables, not Promises.
+  const { data, error } = await withRetry(
+    async () => await supabase.rpc("is_username_available", { candidate: username.trim() }),
+    { shouldRetry: isRetryableRead },
+  );
   if (error) throw error;
   return Boolean(data);
 }
@@ -108,11 +169,18 @@ export async function uploadInitialProfile(onlineUserId: string) {
 }
 
 export async function hasUploadedProfile(onlineUserId: string) {
-  const { data, error } = await supabase
-    .from("profile_sync_snapshots")
-    .select("user_id")
-    .eq("user_id", onlineUserId)
-    .maybeSingle();
+  // Pure read. This one gates the whole sync flow (OnlineLive + main.tsx both
+  // branch on it), so a dropped request would kick off an upload that was not
+  // needed.
+  const { data, error } = await withRetry(
+    async () =>
+      await supabase
+        .from("profile_sync_snapshots")
+        .select("user_id")
+        .eq("user_id", onlineUserId)
+        .maybeSingle(),
+    { shouldRetry: isRetryableRead },
+  );
   if (error) throw error;
   return Boolean(data);
 }
@@ -155,7 +223,10 @@ export async function syncReaderData(onlineUserId:string){
 }
 
 export async function listFriendConnections() {
-  const { data, error } = await supabase.rpc("list_friend_connections");
+  const { data, error } = await withRetry(
+    async () => await supabase.rpc("list_friend_connections"),
+    { shouldRetry: isRetryableRead },
+  );
   if (error) throw error;
   return (data ?? []).map((row: {id:string;user_id:string;username:string;status:"pending"|"accepted";direction:"incoming"|"outgoing"|"friend"}) => ({
     id:row.id,userId:row.user_id,username:row.username,status:row.status,direction:row.direction,
@@ -185,9 +256,26 @@ export async function createMultiplayerGame(bookIds:string[],questionCount:numbe
 export async function joinMultiplayerGame(code:string){const {data,error}=await supabase.rpc("join_multiplayer_game",{code_input:code});if(error)throw error;return String(data)}
 export interface GameInvitation {id:string;code:string;username:string}
 export async function inviteFriendToGame(code:string,friendId:string){const {error}=await supabase.rpc("invite_friend_to_game",{code_input:code,friend_id:friendId});if(error)throw error}
-export async function listGameInvitations(){const {data,error}=await supabase.rpc("list_game_invitations");if(error)throw error;return (data??[]) as GameInvitation[]}
+// Pure read — retried. Polled every 5s for the invite badge, so a single
+// blip currently clears the badge until the next tick.
+export async function listGameInvitations(){const {data,error}=await withRetry(async()=>await supabase.rpc("list_game_invitations"),{shouldRetry:isRetryableRead});if(error)throw error;return (data??[]) as GameInvitation[]}
+// Pure read — retried, but on a deliberately smaller budget than the other
+// reads. CustomGame drives the whole round from this and re-polls it every
+// 750ms. A default 3-attempt chain can outlive the next tick, so during an
+// outage the chains stack: a 1x request rate becomes ~3x against a project
+// that is already the thing falling over. Two attempts caps that at ~1.5x and
+// still absorbs a single dropped packet, which is the common case.
+export async function getMultiplayerState(code:string){const {data,error}=await withRetry(async()=>await supabase.rpc("multiplayer_game_state",{code_input:code}),{shouldRetry:isRetryableRead,attempts:2,baseDelayMs:200});if(error)throw error;return data as MultiplayerState}
+
+// --- WRITES: deliberately NOT retried. See the retry policy note at the top
+// of this file. A replayed `advance_multiplayer_game` / `answer_multiplayer_question`
+// can advance a phase or score an answer that already landed server-side, and a
+// replayed `dismiss_game_invitation` / `invite_friend_to_game` can leave a
+// duplicate row for the user to clear by hand. These surface their error and let
+// the user decide. The same applies to the sync writes above
+// (`uploadInitialProfile`, `syncXpLedger`, `syncReaderData`) and to every
+// friend-request write. ---
 export async function dismissGameInvitation(id:string){const {error}=await supabase.rpc("dismiss_game_invitation",{invitation_id:id});if(error)throw error}
-export async function getMultiplayerState(code:string){const {data,error}=await supabase.rpc("multiplayer_game_state",{code_input:code});if(error)throw error;return data as MultiplayerState}
 export async function advanceMultiplayerGame(code:string){const {error}=await supabase.rpc("advance_multiplayer_game",{code_input:code});if(error)throw error}
 export async function answerMultiplayerQuestion(code:string,selectedIndex:number){const {data,error}=await supabase.rpc("answer_multiplayer_question",{code_input:code,selected_index_input:selectedIndex});if(error)throw error;return Number(data)}
 
