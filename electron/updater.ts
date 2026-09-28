@@ -14,6 +14,7 @@
  */
 import electron, { type BrowserWindow } from "electron";
 import electronUpdater from "electron-updater";
+import { appendDiagnostic } from "./diagnostics.js";
 import { decideDialog, shouldRunCheck, type UpdateStatus } from "./updater-state.js";
 
 const { app } = electron;
@@ -142,6 +143,15 @@ export function configureAutoUpdates(win: BrowserWindow): void {
 			(error && (error as { message?: string }).message) || String(error);
 		publish({ state: "error", reason });
 		console.error("Automatic update error:", error);
+		// Same as before this module existed: an update failure is exactly the
+		// event a user will report, so it has to survive in the diagnostic log
+		// and not only on the console.
+		appendDiagnostic({
+			level: "error",
+			scope: "updater",
+			message: "autoUpdater error",
+			detail: error instanceof Error ? error.stack : String(error),
+		});
 	});
 
 	// Kick off an initial check on the next tick so the renderer can subscribe
