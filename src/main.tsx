@@ -3000,8 +3000,21 @@ try {
 		throw new Error("The secure desktop bridge did not load.");
 	createRoot(document.getElementById("root")!).render(<App />);
 } catch (error) {
+	// Rendered with DOM APIs rather than innerHTML: the message can originate
+	// from a rejected IPC/Supabase call, so interpolating it into markup would
+	// execute any HTML it happened to contain.
 	const root = document.getElementById("root");
-	if (root)
-		root.innerHTML = `<main style="font-family:Segoe UI,sans-serif;padding:40px;color:#7b2d2d"><h1>Lamp &amp; Light could not start</h1><p>${error instanceof Error ? error.message : String(error)}</p></main>`;
+	if (root) {
+		root.replaceChildren();
+		const main = document.createElement("main");
+		main.style.cssText =
+			"font-family:Segoe UI,sans-serif;padding:40px;color:#7b2d2d";
+		const heading = document.createElement("h1");
+		heading.textContent = "Lamp & Light could not start";
+		const detail = document.createElement("p");
+		detail.textContent = error instanceof Error ? error.message : String(error);
+		main.append(heading, detail);
+		root.append(main);
+	}
 	console.error(error);
 }
