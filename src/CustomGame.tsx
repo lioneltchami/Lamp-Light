@@ -290,6 +290,10 @@ function GameRoom({ code, leave }: { code: string; leave: () => void }) {
         .catch((e) => setError(onlineErrorMessage(e, "Game disconnected."))),
     [code],
   );
+  // The host drives shared game state, so its clock and phase driver must keep
+  // running even when this window is hidden — otherwise minimising the host's
+  // window freezes the round for every other player.
+  const isHost = Boolean(game?.host);
   useEffect(() => {
     // While the window is hidden this effect returns *before* creating any
     // interval, so neither the 750ms Supabase poll nor the 200ms render clock
@@ -299,7 +303,12 @@ function GameRoom({ code, leave }: { code: string; leave: () => void }) {
     // stale) and one immediate clock read, so the countdown is right on the
     // first visible frame. That is the same call the interval would make, not
     // an extra one.
-    if (hidden) return;
+    //
+    // Exception: the host keeps both running while hidden. The host drives
+    // shared game state (see the phase-expiry effect below) and the countdown
+    // is what decides when to advance it — freezing the clock would stall the
+    // round for every other player in the game.
+    if (hidden && !isHost) return;
     void load();
     setNow(Date.now());
     const poll = setInterval(() => void load(), 750),
@@ -308,7 +317,7 @@ function GameRoom({ code, leave }: { code: string; leave: () => void }) {
       clearInterval(poll);
       clearInterval(clock);
     };
-  }, [load, hidden]);
+  }, [load, hidden, isHost]);
   const elapsed = game?.phaseStartedAt
     ? Math.max(0, (now - new Date(game.phaseStartedAt).getTime()) / 1000)
     : 0;
@@ -319,13 +328,11 @@ function GameRoom({ code, leave }: { code: string; leave: () => void }) {
         ? game.questionSeconds
         : 0;
   useEffect(() => {
-    // Gated on `hidden` for the same reason as the poll: this is a Supabase
-    // *write* retry loop, the most expensive one in the file. Trade-off worth
-    // knowing: a host who minimises mid-round stops auto-advancing phases
-    // while hidden. On return the clock resyncs above, `elapsed` jumps back
-    // over `phaseLimit`, this effect re-runs and fires `expire()` immediately
-    // — the game catches up before the player sees the board.
-    if (hidden) return;
+    // NOT gated on `hidden` — this is the one loop in the file that must keep
+    // running while the window is minimised. It performs a Supabase *write*
+    // that advances shared game state, so pausing it would freeze the round
+    // for every other player in the game, not just for this user. The other
+    // loops here only affect what this one user sees and are safe to pause.
     if (!game?.host || !phaseLimit || elapsed < phaseLimit) return;
     let active = true,
       inFlight = false;
@@ -350,7 +357,6 @@ function GameRoom({ code, leave }: { code: string; leave: () => void }) {
   }, [
     code,
     load,
-    hidden,
     game?.host,
     game?.status,
     game?.currentIndex,
