@@ -3,25 +3,6 @@ body {
   color: var(--ink);
   background: var(--cream);
 }
-/* WCAG AA text fixes.
- *
- * --faint (#7c837e) and --gold-eyebrow (#9a7750) measure 3.3-4.1:1 against
- * the light surfaces, under the 4.5:1 AA threshold for body text. They are
- * defined in theme.css, which is outside this pass's scope, so rather than
- * redefine the tokens this file overrides the two places they are used for
- * small text. The dark values already pass (4.6-7.4:1) and are reused
- * unchanged, so dark mode does not regress.
- *
- * The correct fix is to correct the tokens in theme.css and drop these.
- */
-:root {
-  --a11y-faint: #696e6b;
-  --a11y-eyebrow: #84684a;
-}
-[data-theme="dark"] {
-  --a11y-faint: var(--faint);
-  --a11y-eyebrow: var(--gold-eyebrow);
-}
 * {
   box-sizing: border-box;
 }
@@ -136,7 +117,7 @@ button {
 .gate small {
   display: block;
   margin-top: 16px;
-  color: var(--a11y-faint);
+  color: var(--faint);
 }
 /* Keyboard-only shortcut past the header nav. Off-screen until focused. */
 .skip-link {
@@ -233,7 +214,7 @@ main[tabindex="-1"]:focus {
 }
 .brand small {
   font-size: 8px;
-  color: var(--a11y-faint);
+  color: var(--faint);
 }
 nav {
   display: flex;
@@ -413,7 +394,7 @@ main {
   font-size: 11px;
   letter-spacing: 2px;
   font-weight: 700;
-  color: var(--a11y-eyebrow);
+  color: var(--gold-eyebrow);
 }
 .hero .eyebrow {
   color: var(--gold-hero);
@@ -817,7 +798,7 @@ main {
   line-height: 1.35;
 }
 .reference {
-  color: var(--a11y-eyebrow);
+  color: var(--gold-eyebrow);
 }
 .choices {
   display: grid;
@@ -911,7 +892,7 @@ main {
 }
 .scripture sup {
   font: 11px "DM Sans";
-  color: var(--a11y-eyebrow);
+  color: var(--gold-eyebrow);
   margin-right: 7px;
 }
 .scripture .temporary {
