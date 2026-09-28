@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
   Clock,
@@ -31,6 +31,21 @@ import {
 } from "./onlineService";
 
 type BookMode = "all" | "ot" | "nt" | "random" | "specific";
+
+// Local copy on purpose — no shared src/lib/visibility helper, so this file
+// stays independent of any other agent's module. The typeof guard keeps the
+// initialiser safe if this ever renders without a DOM (SSR / no-jsdom test).
+function useHidden() {
+  const [hidden, setHidden] = useState(
+    () => typeof document !== "undefined" && document.visibilityState === "hidden",
+  );
+  useEffect(() => {
+    const onChange = () => setHidden(document.visibilityState === "hidden");
+    document.addEventListener("visibilitychange", onChange);
+    return () => document.removeEventListener("visibilitychange", onChange);
+  }, []);
+  return hidden;
+}
 
 export default function CustomGame({
   books,
@@ -264,19 +279,36 @@ function GameRoom({ code, leave }: { code: string; leave: () => void }) {
     [error, setError] = useState(""),
     [now, setNow] = useState(Date.now()),
     [copied, setCopied] = useState(false);
-  const load = () =>
-    getMultiplayerState(code)
-      .then(setGame)
-      .catch((e) => setError(onlineErrorMessage(e, "Game disconnected.")));
+  const hidden = useHidden();
+  // useCallback so the polling effect below can depend on it honestly —
+  // without it, an inline `load` in the dep array would tear down and
+  // recreate the 750ms interval on every single render.
+  const load = useCallback(
+    () =>
+      getMultiplayerState(code)
+        .then(setGame)
+        .catch((e) => setError(onlineErrorMessage(e, "Game disconnected."))),
+    [code],
+  );
   useEffect(() => {
+    // While the window is hidden this effect returns *before* creating any
+    // interval, so neither the 750ms Supabase poll nor the 200ms render clock
+    // runs at all — it is stopped, not skipped. `hidden` is in the deps, so
+    // becoming visible again re-runs this effect and the two calls below are
+    // the resync: one immediate state fetch (the board can be arbitrarily
+    // stale) and one immediate clock read, so the countdown is right on the
+    // first visible frame. That is the same call the interval would make, not
+    // an extra one.
+    if (hidden) return;
     void load();
+    setNow(Date.now());
     const poll = setInterval(() => void load(), 750),
       clock = setInterval(() => setNow(Date.now()), 200);
     return () => {
       clearInterval(poll);
       clearInterval(clock);
     };
-  }, [code]);
+  }, [load, hidden]);
   const elapsed = game?.phaseStartedAt
     ? Math.max(0, (now - new Date(game.phaseStartedAt).getTime()) / 1000)
     : 0;
@@ -287,6 +319,13 @@ function GameRoom({ code, leave }: { code: string; leave: () => void }) {
         ? game.questionSeconds
         : 0;
   useEffect(() => {
+    // Gated on `hidden` for the same reason as the poll: this is a Supabase
+    // *write* retry loop, the most expensive one in the file. Trade-off worth
+    // knowing: a host who minimises mid-round stops auto-advancing phases
+    // while hidden. On return the clock resyncs above, `elapsed` jumps back
+    // over `phaseLimit`, this effect re-runs and fires `expire()` immediately
+    // — the game catches up before the player sees the board.
+    if (hidden) return;
     if (!game?.host || !phaseLimit || elapsed < phaseLimit) return;
     let active = true,
       inFlight = false;
@@ -310,6 +349,8 @@ function GameRoom({ code, leave }: { code: string; leave: () => void }) {
     };
   }, [
     code,
+    load,
+    hidden,
     game?.host,
     game?.status,
     game?.currentIndex,
@@ -628,6 +669,7 @@ function GameInvitations({
   const [items, setItems] = useState<GameInvitation[]>([]),
     [error, setError] = useState(""),
     [dismissing, setDismissing] = useState(false);
+  const hidden = useHidden();
   useEffect(() => {
     let active = true;
     const load = async () => {
@@ -643,13 +685,18 @@ function GameInvitations({
           setError(onlineErrorMessage(e, "Could not load game invitations."));
       }
     };
+    // Early return means no interval is ever created while hidden. Re-running
+    // on resume calls load() once, immediately — that single call is the
+    // resync for the badge count, so invites that arrived while minimised
+    // show up on the first visible frame.
+    if (hidden) return;
     void load();
     const timer = setInterval(() => void load(), 5000);
     return () => {
       active = false;
       clearInterval(timer);
     };
-  }, [onCount]);
+  }, [onCount, hidden]);
   const dismiss = async (id: string) => {
     setDismissing(true);
     try {

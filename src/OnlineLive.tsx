@@ -39,6 +39,23 @@ import { useAsyncError } from "./hooks/useAsyncError";
 type Section = "account" | "friends" | "games";
 type SyncState = "offline" | "attention" | "syncing" | "synced";
 
+// Local copy on purpose — no shared src/lib/visibility helper, so this file
+// stays independent of any other agent's module. The typeof guard keeps the
+// initialiser safe if this ever renders without a DOM (SSR / no-jsdom test).
+function useHidden() {
+	const [hidden, setHidden] = useState(
+		() =>
+			typeof document !== "undefined" &&
+			document.visibilityState === "hidden",
+	);
+	useEffect(() => {
+		const onChange = () => setHidden(document.visibilityState === "hidden");
+		document.addEventListener("visibilitychange", onChange);
+		return () => document.removeEventListener("visibilitychange", onChange);
+	}, []);
+	return hidden;
+}
+
 function syncLabel(sync: SyncState) {
 	if (sync === "syncing") return "Syncing…";
 	if (sync === "synced") return "Up to date";
@@ -66,6 +83,7 @@ export default function OnlineLive({
 	const [inviteCount, setInviteCount] = useState(0);
 	const [requestCount, setRequestCount] = useState(0);
 	const autoSynced = useRef(false);
+	const hidden = useHidden();
 	const friendsError = useAsyncError();
 	const reportInvites = useCallback((n: number) => setInviteCount(n), []);
 	const reportRequests = useCallback((n: number) => setRequestCount(n), []);
@@ -137,13 +155,20 @@ export default function OnlineLive({
 					friendsError.wrap(Promise.reject(err));
 				});
 		};
+		// Early return means no interval is created at all while the window is
+		// hidden — the badge poll is stopped, not merely skipped. `hidden` is
+		// in the deps, so becoming visible re-runs this effect and the load()
+		// below is the one-shot resync: the invite / request counts can be
+		// arbitrarily stale after a pause, and this is the same call the
+		// interval would have made, not an extra one.
+		if (hidden) return;
 		load();
 		const timer = setInterval(load, 5000);
 		return () => {
 			active = false;
 			clearInterval(timer);
 		};
-	}, [account, friendsError]);
+	}, [account, friendsError, hidden]);
 
 	useEffect(() => {
 		if (account)
@@ -589,6 +614,7 @@ function Friends({
 	const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(
 		() => new Set(),
 	);
+	const hidden = useHidden();
 	const load = () =>
 		listFriendConnections()
 			.then((list) => {
@@ -607,11 +633,17 @@ function Friends({
 			})
 			.catch((e: unknown) => friendsError.wrap(Promise.reject(e)));
 	useEffect(() => {
+		// No interval while hidden — early return, so the 5s
+		// listGameInvitations poll is genuinely stopped. `hidden` in the deps
+		// means the two one-shot loads below re-run on resume and are the
+		// resync: invite count and friend list are both corrected on the first
+		// visible frame.
+		if (hidden) return;
 		void load();
 		void loadInvites();
 		const timer = setInterval(() => void loadInvites(), 5000);
 		return () => clearInterval(timer);
-	}, [friendsError]);
+	}, [friendsError, hidden]);
 	useEffect(() => {
 		try {
 			return subscribeToOnlineUsers(userId, setOnlineUserIds);
