@@ -85,6 +85,12 @@ export default function OnlineLive({
 	const autoSynced = useRef(false);
 	const hidden = useHidden();
 	const friendsError = useAsyncError();
+	// `wrap` is a stable useCallback([]) — depend on it, never on the memoized
+	// result object. That object is memoized on `error`, so every recorded
+	// failure yields a new identity; putting it in a dep array re-runs the
+	// effect, which re-issues the failing request, which records another error.
+	// That is an unbounded retry loop the moment the network is down.
+	const { wrap: reportFriendsError } = friendsError;
 	const reportInvites = useCallback((n: number) => setInviteCount(n), []);
 	const reportRequests = useCallback((n: number) => setRequestCount(n), []);
 
@@ -123,9 +129,9 @@ export default function OnlineLive({
 				// restore failure shouldn't kill the page — surface in the
 				// friends pill so the user can retry.
 				setSync("attention");
-				void friendsError.wrap(Promise.reject(err));
+				void reportFriendsError(Promise.reject(err));
 			});
-	}, [friendsError]);
+	}, [reportFriendsError]);
 
 	useEffect(() => {
 		if (!account) {
@@ -141,7 +147,7 @@ export default function OnlineLive({
 				})
 				.catch((err: unknown) => {
 					if (!active) return;
-					friendsError.wrap(Promise.reject(err));
+					void reportFriendsError(Promise.reject(err));
 				});
 			void listFriendConnections()
 				.then((items) => {
@@ -152,7 +158,7 @@ export default function OnlineLive({
 				})
 				.catch((err: unknown) => {
 					if (!active) return;
-					friendsError.wrap(Promise.reject(err));
+					void reportFriendsError(Promise.reject(err));
 				});
 		};
 		// Early return means no interval is created at all while the window is
@@ -168,16 +174,16 @@ export default function OnlineLive({
 			active = false;
 			clearInterval(timer);
 		};
-	}, [account, friendsError, hidden]);
+	}, [account, reportFriendsError, hidden]);
 
 	useEffect(() => {
 		if (account)
 			void window.lampLight
 				.invoke("profile:link-online", account.onlineUserId)
 				.catch((err: unknown) => {
-					friendsError.wrap(Promise.reject(err));
+					void reportFriendsError(Promise.reject(err));
 				});
-	}, [account, profile.id, friendsError]);
+	}, [account, profile.id, reportFriendsError]);
 
 	return (
 		<section className="page online-page">
@@ -615,6 +621,9 @@ function Friends({
 		() => new Set(),
 	);
 	const hidden = useHidden();
+	// See the note in the parent component: depend on the stable `wrap`, never
+	// on the memoized result object, or a failing poll re-arms itself forever.
+	const { wrap: reportFriendsError } = friendsError;
 	const load = () =>
 		listFriendConnections()
 			.then((list) => {
@@ -631,7 +640,7 @@ function Friends({
 				setInvites(list);
 				onInviteCount?.(list.length);
 			})
-			.catch((e: unknown) => friendsError.wrap(Promise.reject(e)));
+			.catch((e: unknown) => reportFriendsError(Promise.reject(e)));
 	useEffect(() => {
 		// No interval while hidden — early return, so the 5s
 		// listGameInvitations poll is genuinely stopped. `hidden` in the deps
@@ -643,7 +652,7 @@ function Friends({
 		void loadInvites();
 		const timer = setInterval(() => void loadInvites(), 5000);
 		return () => clearInterval(timer);
-	}, [friendsError, hidden]);
+	}, [reportFriendsError, hidden]);
 	useEffect(() => {
 		try {
 			return subscribeToOnlineUsers(userId, setOnlineUserIds);
