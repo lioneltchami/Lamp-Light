@@ -781,6 +781,7 @@ function Friends({
 				<div className="friend-search">
 					<UserPlus />
 					<input
+						aria-label="Friend code"
 						value={code}
 						onChange={(e) => setCode(e.target.value.toUpperCase())}
 						placeholder="Friend code"

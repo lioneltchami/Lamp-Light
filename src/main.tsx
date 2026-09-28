@@ -604,6 +604,7 @@ function ProfileGate({
 				<hr />
 				<h3>Create a local profile</h3>
 				<input
+					aria-label="New profile name"
 					placeholder="Your name"
 					value={name}
 					onChange={(e) => setName(e.target.value)}
@@ -1250,6 +1251,7 @@ function Quiz({
 					{q.choices.map((c, i) => (
 						<button
 							disabled={session.selectedIndex !== null}
+							aria-pressed={selected === i}
 							className={`${selected === i ? "selected " : ""}${session.selectedIndex !== null ? (i === session.correctIndex ? "correct" : i === session.selectedIndex ? "wrong" : "") : ""}`}
 							onClick={() => setSelected(i)}
 							key={i}
@@ -1517,6 +1519,7 @@ function SettingsPage({
 		null,
 	);
 	const [newName, setNewName] = useState("");
+	const [newNameError, setNewNameError] = useState<string | null>(null);
 	const [newAvatar, setNewAvatar] = useState("lamb");
 	const [showCreate, setShowCreate] = useState(false);
 	const [activeSection, setActiveSection] = useState<string>(
@@ -1525,6 +1528,7 @@ function SettingsPage({
 	const [renameValue, setRenameValue] = useState(
 		() => boot.activeProfile?.name ?? "",
 	);
+	const [renameError, setRenameError] = useState<string | null>(null);
 	const [prefs, setPrefsState] = useState(() => getPrefs());
 	const [reminder, setReminder] = useState<{
 		enabled: boolean;
@@ -1655,7 +1659,14 @@ function SettingsPage({
 
 	const createProfile = async () => {
 		const name = newName.trim();
-		if (!name) return;
+		// Validated on submit, not by disabling the button: a disabled control
+		// is unreachable by keyboard and announces nothing, so it reads as
+		// broken rather than incomplete.
+		if (!name) {
+			setNewNameError("Enter a name for the new profile.");
+			return;
+		}
+		setNewNameError(null);
 		await run(async () => {
 			await api("profile:create", { name, avatarId: newAvatar });
 			setNewName("");
@@ -1666,7 +1677,15 @@ function SettingsPage({
 
 	const renameProfile = async () => {
 		const name = renameValue.trim();
-		if (!name || name === active?.name) return;
+		if (!name) {
+			setRenameError("Enter a new name.");
+			return;
+		}
+		if (name === active?.name) {
+			setRenameError("That is already this profile's name.");
+			return;
+		}
+		setRenameError(null);
 		await run(async () => {
 			await api("profile:rename", name);
 			await refreshBoot();
@@ -1825,20 +1844,32 @@ function SettingsPage({
 									value={renameValue}
 									maxLength={40}
 									aria-label="Profile name"
-									onChange={(e) => setRenameValue(e.target.value)}
+									aria-describedby={
+										renameError ? "rename-error" : undefined
+									}
+									aria-invalid={renameError ? true : undefined}
+									onChange={(e) => {
+										setRenameValue(e.target.value);
+										setRenameError(null);
+									}}
 								/>
 								<button
 									className="secondary"
-									disabled={
-										busy ||
-										!renameValue.trim() ||
-										renameValue.trim() === active.name
-									}
+									disabled={busy}
 									onClick={() => void renameProfile()}
 								>
 									Save
 								</button>
 							</div>
+							{renameError && (
+								<p
+									id="rename-error"
+									className="form-error"
+									role="alert"
+								>
+									{renameError}
+								</p>
+							)}
 						</div>
 						<div className="settings-row settings-danger-row">
 							<button
@@ -1909,10 +1940,18 @@ function SettingsPage({
 							</button>
 						</div>
 						<input
+							aria-label="New profile name"
 							placeholder="Name"
 							value={newName}
 							maxLength={40}
-							onChange={(e) => setNewName(e.target.value)}
+							aria-describedby={
+								newNameError ? "new-profile-error" : undefined
+							}
+							aria-invalid={newNameError ? true : undefined}
+							onChange={(e) => {
+								setNewName(e.target.value);
+								setNewNameError(null);
+							}}
 						/>
 						<div className="animals">
 							{boot.animals
@@ -1933,11 +1972,20 @@ function SettingsPage({
 						</div>
 						<button
 							className="primary"
-							disabled={busy || !newName.trim()}
+							disabled={busy}
 							onClick={() => void createProfile()}
 						>
 							Create profile
 						</button>
+						{newNameError && (
+							<p
+								id="new-profile-error"
+								className="form-error"
+								role="alert"
+							>
+								{newNameError}
+							</p>
+						)}
 					</div>
 				)}
 			</div>

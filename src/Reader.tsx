@@ -1230,6 +1230,7 @@ export default function Reader({
             <>
               <textarea
                 autoFocus
+                aria-label={`Note on verse ${editingVerse}`}
                 value={noteDraft}
                 onChange={(event) => setNoteDraft(event.target.value)}
                 placeholder="Write a private note saved only to this profile…"

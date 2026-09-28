@@ -56,6 +56,7 @@ export default function CustomGame({
 }) {
   const [roomCode, setRoomCode] = useState<string | null>(null),
     [joinCode, setJoinCode] = useState(""),
+    [joinError, setJoinError] = useState<string | null>(null),
     [error, setError] = useState("");
   const [mode, setMode] = useState<BookMode>("all"),
     [selected, setSelected] = useState<string[]>([]),
@@ -244,20 +245,39 @@ export default function CustomGame({
             <p>Enter the host’s room code.</p>
             <div>
               <input
+                aria-label="Room code"
                 maxLength={6}
                 value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  setJoinCode(e.target.value.toUpperCase());
+                  setJoinError(null);
+                }}
                 placeholder="ABC123"
               />
               <button
                 type="button"
                 className="secondary"
-                disabled={busy || joinCode.length !== 6}
-                onClick={() => void run(() => joinMultiplayerGame(joinCode))}
+                disabled={busy}
+                onClick={() => {
+                  // Validate on submit rather than disabling the button: a
+                  // disabled control is unreachable by keyboard and announces
+                  // nothing, so it just looks broken.
+                  if (joinCode.trim().length !== 6) {
+                    setJoinError("Room codes are 6 characters.");
+                    return;
+                  }
+                  setJoinError(null);
+                  void run(() => joinMultiplayerGame(joinCode));
+                }}
               >
                 Join
               </button>
             </div>
+            {joinError && (
+              <p className="form-error" role="alert">
+                {joinError}
+              </p>
+            )}
           </section>
           <section className="scoring-card card">
             <Trophy />
