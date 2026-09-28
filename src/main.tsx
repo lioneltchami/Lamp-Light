@@ -188,6 +188,33 @@ function App() {
 			offShare();
 		};
 	}, []);
+	const mainRef = useRef<HTMLElement | null>(null);
+	const firstPageRef = useRef(true);
+	// Move focus to the new view on page change, otherwise keyboard and screen
+	// reader users are stranded wherever focus happened to be - usually the
+	// header, which never changes. Skipped on the first run: stealing focus at
+	// boot would be hostile.
+	useEffect(() => {
+		if (firstPageRef.current) {
+			firstPageRef.current = false;
+			return;
+		}
+		const main = mainRef.current;
+		if (!main) return;
+		// Prefer the page heading, since that is what should be announced. Not
+		// every view has one, so fall back to the <main> landmark.
+		const heading = main.querySelector<HTMLElement>("h1");
+		const target = heading ?? main;
+		if (heading && !heading.hasAttribute("tabindex")) {
+			// Programmatic focus only - keeps the heading out of the tab order.
+			heading.setAttribute("tabindex", "-1");
+		}
+		target.focus({ preventScroll: true });
+		const reduce =
+			typeof window.matchMedia === "function" &&
+			window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		window.scrollTo({ top: 0, left: 0, behavior: reduce ? "auto" : "smooth" });
+	}, [page]);
 	if (!boot) return <div className="loading">Opening Lamp &amp; Light…</div>;
 	if (!boot.activeProfile)
 		return (
@@ -310,6 +337,9 @@ function App() {
 	};
 	return (
 		<div className="shell">
+			<a className="skip-link" href="#main-content">
+				Skip to main content
+			</a>
 			<header className={`app-header${headerCompact ? " is-compact" : ""}`}>
 				<button
 					type="button"
@@ -370,7 +400,7 @@ function App() {
 					</button>
 				</div>
 			</header>
-			<main>
+			<main id="main-content" ref={mainRef} tabIndex={-1}>
 				{quizActive && session && page !== "bible" ? (
 					<Quiz
 						session={session}
