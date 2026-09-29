@@ -2,6 +2,11 @@
 
 All notable changes to Lamp & Light are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.25] - 2026-09-29
+
+### Fixed
+- **The diagnostic export failed on every destination on Windows.** `validateExportPath` rejected any path containing a backslash, intending to refuse a Windows-shaped payload on a POSIX host. On Windows a backslash is the separator and `path.join` emits one in every absolute path, so the feature was broken on the platform where a user is most likely to need a bundle. The rule is now conditional on `path.sep`. (`electron/diagnostics.ts`)
+
 ## [1.2.24] - 2026-09-28
 
 ### Added

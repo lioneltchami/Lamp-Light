@@ -451,5 +451,27 @@ describe("exportDiagnosticBundle", () => {
 			expect(fs.readFileSync(dest, "utf8")).toContain("diagnostic bundle");
 			fs.rmSync(dest, { force: true });
 		});
+
+		it("does not reject a Windows separator on the platform that uses it", async () => {
+			// A blanket ban on backslashes broke the export completely on
+			// Windows, where every absolute path from path.join contains one.
+			// CI caught it because macOS never exercises the Windows shape.
+			// This asserts the platform-correct behaviour on whichever host runs.
+			const dest = path.join(os.tmpdir(), `bundle-sep-${process.pid}.txt`);
+			const result = await exportDiagnosticBundle(dest);
+			if (path.sep === "\\") {
+				expect(result.ok).toBe(true);
+				fs.rmSync(dest, { force: true });
+			} else {
+				// On POSIX a backslash is a legal filename character but is
+				// almost always a Windows-shaped payload, so it stays refused.
+				const windowsShaped = `${os.tmpdir()}\\evil-${process.pid}.txt`;
+				expect(result.ok).toBe(true);
+				expect(
+					(await exportDiagnosticBundle(windowsShaped)).error,
+				).toMatch(/backslash/i);
+				fs.rmSync(dest, { force: true });
+			}
+		});
 	});
 });
