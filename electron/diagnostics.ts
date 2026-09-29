@@ -348,10 +348,17 @@ function validateExportPath(raw: unknown): ExportPathCheck {
 	if (dest.split(/[\\/]+/).includes("..")) {
 		return reject("Destination may not contain '..'.");
 	}
-	// We split on both separators above, so refuse the ambiguous input outright
-	// rather than let a Windows-shaped payload mean one thing to `path` and
-	// another to the `..` scan.
-	if (dest.includes("\\")) {
+	// We split on both separators in the `..` scan above, so a Windows-shaped
+	// payload is already caught for traversal. What remains ambiguous is a path
+	// that mixes both separators *on a host that treats backslash as a plain
+	// filename character* — POSIX, where `a\..\b` is a single odd filename but
+	// reads as traversal to anyone auditing it. Refuse that, and only that.
+	//
+	// On Windows a backslash IS the separator and `path.join` produces one in
+	// every absolute path, so banning it outright would break the export
+	// feature completely on the platform where a user is most likely to need a
+	// diagnostic bundle.
+	if (path.sep !== "\\" && dest.includes("\\")) {
 		return reject("Destination may not contain a backslash.");
 	}
 	const base = path.basename(dest);

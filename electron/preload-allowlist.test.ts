@@ -122,7 +122,9 @@ describe("preload allowlist", () => {
 		// The scan is the guard. If it ever narrows back to `main.ts` alone, a
 		// handler registered in `electron/ipc/*.ts` would bypass the allowlist
 		// diff without a single test going red.
-		expect(mainSources).toContain("electron/main.ts");
+		expect(mainSources).toContain(
+			["electron", "main.ts"].join(path.sep),
+		);
 		expect(mainSources.some((f) => f.startsWith(`electron${path.sep}ipc${path.sep}`))).toBe(
 			true,
 		);
