@@ -188,6 +188,33 @@ function App() {
 			offShare();
 		};
 	}, []);
+	const mainRef = useRef<HTMLElement | null>(null);
+	const firstPageRef = useRef(true);
+	// Move focus to the new view on page change, otherwise keyboard and screen
+	// reader users are stranded wherever focus happened to be - usually the
+	// header, which never changes. Skipped on the first run: stealing focus at
+	// boot would be hostile.
+	useEffect(() => {
+		if (firstPageRef.current) {
+			firstPageRef.current = false;
+			return;
+		}
+		const main = mainRef.current;
+		if (!main) return;
+		// Prefer the page heading, since that is what should be announced. Not
+		// every view has one, so fall back to the <main> landmark.
+		const heading = main.querySelector<HTMLElement>("h1");
+		const target = heading ?? main;
+		if (heading && !heading.hasAttribute("tabindex")) {
+			// Programmatic focus only - keeps the heading out of the tab order.
+			heading.setAttribute("tabindex", "-1");
+		}
+		target.focus({ preventScroll: true });
+		const reduce =
+			typeof window.matchMedia === "function" &&
+			window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		window.scrollTo({ top: 0, left: 0, behavior: reduce ? "auto" : "smooth" });
+	}, [page]);
 	if (!boot) return <div className="loading">Opening Lamp &amp; Light…</div>;
 	if (!boot.activeProfile)
 		return (
@@ -310,6 +337,9 @@ function App() {
 	};
 	return (
 		<div className="shell">
+			<a className="skip-link" href="#main-content">
+				Skip to main content
+			</a>
 			<header className={`app-header${headerCompact ? " is-compact" : ""}`}>
 				<button
 					type="button"
@@ -370,7 +400,7 @@ function App() {
 					</button>
 				</div>
 			</header>
-			<main>
+			<main id="main-content" ref={mainRef} tabIndex={-1}>
 				{quizActive && session && page !== "bible" ? (
 					<Quiz
 						session={session}
@@ -574,6 +604,7 @@ function ProfileGate({
 				<hr />
 				<h3>Create a local profile</h3>
 				<input
+					aria-label="New profile name"
 					placeholder="Your name"
 					value={name}
 					onChange={(e) => setName(e.target.value)}
@@ -583,12 +614,15 @@ function ProfileGate({
 						.filter((a) => a.unlockLevel === 1)
 						.map((a) => (
 							<button
+								type="button"
 								title={a.name}
+								aria-label={a.name}
 								className={avatar === a.id ? "chosen" : ""}
+								aria-pressed={avatar === a.id}
 								onClick={() => setAvatar(a.id)}
 								key={a.id}
 							>
-								{a.emoji}
+								<span aria-hidden>{a.emoji}</span>
 							</button>
 						))}
 				</div>
@@ -1217,6 +1251,7 @@ function Quiz({
 					{q.choices.map((c, i) => (
 						<button
 							disabled={session.selectedIndex !== null}
+							aria-pressed={selected === i}
 							className={`${selected === i ? "selected " : ""}${session.selectedIndex !== null ? (i === session.correctIndex ? "correct" : i === session.selectedIndex ? "wrong" : "") : ""}`}
 							onClick={() => setSelected(i)}
 							key={i}
@@ -1415,6 +1450,7 @@ function LegacyReader({
 									/>
 								))}
 								<button
+									aria-label={`Remove highlight from verse ${v.verse}`}
 									onClick={() =>
 										api("highlight:set", {
 											bookId,
@@ -1483,6 +1519,7 @@ function SettingsPage({
 		null,
 	);
 	const [newName, setNewName] = useState("");
+	const [newNameError, setNewNameError] = useState<string | null>(null);
 	const [newAvatar, setNewAvatar] = useState("lamb");
 	const [showCreate, setShowCreate] = useState(false);
 	const [activeSection, setActiveSection] = useState<string>(
@@ -1491,6 +1528,7 @@ function SettingsPage({
 	const [renameValue, setRenameValue] = useState(
 		() => boot.activeProfile?.name ?? "",
 	);
+	const [renameError, setRenameError] = useState<string | null>(null);
 	const [prefs, setPrefsState] = useState(() => getPrefs());
 	const [reminder, setReminder] = useState<{
 		enabled: boolean;
@@ -1621,7 +1659,14 @@ function SettingsPage({
 
 	const createProfile = async () => {
 		const name = newName.trim();
-		if (!name) return;
+		// Validated on submit, not by disabling the button: a disabled control
+		// is unreachable by keyboard and announces nothing, so it reads as
+		// broken rather than incomplete.
+		if (!name) {
+			setNewNameError("Enter a name for the new profile.");
+			return;
+		}
+		setNewNameError(null);
 		await run(async () => {
 			await api("profile:create", { name, avatarId: newAvatar });
 			setNewName("");
@@ -1632,7 +1677,15 @@ function SettingsPage({
 
 	const renameProfile = async () => {
 		const name = renameValue.trim();
-		if (!name || name === active?.name) return;
+		if (!name) {
+			setRenameError("Enter a new name.");
+			return;
+		}
+		if (name === active?.name) {
+			setRenameError("That is already this profile's name.");
+			return;
+		}
+		setRenameError(null);
 		await run(async () => {
 			await api("profile:rename", name);
 			await refreshBoot();
@@ -1791,20 +1844,32 @@ function SettingsPage({
 									value={renameValue}
 									maxLength={40}
 									aria-label="Profile name"
-									onChange={(e) => setRenameValue(e.target.value)}
+									aria-describedby={
+										renameError ? "rename-error" : undefined
+									}
+									aria-invalid={renameError ? true : undefined}
+									onChange={(e) => {
+										setRenameValue(e.target.value);
+										setRenameError(null);
+									}}
 								/>
 								<button
 									className="secondary"
-									disabled={
-										busy ||
-										!renameValue.trim() ||
-										renameValue.trim() === active.name
-									}
+									disabled={busy}
 									onClick={() => void renameProfile()}
 								>
 									Save
 								</button>
 							</div>
+							{renameError && (
+								<p
+									id="rename-error"
+									className="form-error"
+									role="alert"
+								>
+									{renameError}
+								</p>
+							)}
 						</div>
 						<div className="settings-row settings-danger-row">
 							<button
@@ -1875,10 +1940,18 @@ function SettingsPage({
 							</button>
 						</div>
 						<input
+							aria-label="New profile name"
 							placeholder="Name"
 							value={newName}
 							maxLength={40}
-							onChange={(e) => setNewName(e.target.value)}
+							aria-describedby={
+								newNameError ? "new-profile-error" : undefined
+							}
+							aria-invalid={newNameError ? true : undefined}
+							onChange={(e) => {
+								setNewName(e.target.value);
+								setNewNameError(null);
+							}}
 						/>
 						<div className="animals">
 							{boot.animals
@@ -1887,21 +1960,32 @@ function SettingsPage({
 									<button
 										type="button"
 										title={a.name}
+										aria-label={a.name}
+										aria-pressed={newAvatar === a.id}
 										className={newAvatar === a.id ? "chosen" : ""}
 										onClick={() => setNewAvatar(a.id)}
 										key={a.id}
 									>
-										{a.emoji}
+										<span aria-hidden>{a.emoji}</span>
 									</button>
 								))}
 						</div>
 						<button
 							className="primary"
-							disabled={busy || !newName.trim()}
+							disabled={busy}
 							onClick={() => void createProfile()}
 						>
 							Create profile
 						</button>
+						{newNameError && (
+							<p
+								id="new-profile-error"
+								className="form-error"
+								role="alert"
+							>
+								{newNameError}
+							</p>
+						)}
 					</div>
 				)}
 			</div>
@@ -2852,6 +2936,7 @@ function Profile({
 										? `${a.name}, unlocks at level ${a.unlockLevel}`
 										: `Choose ${a.name}`
 								}
+								aria-pressed={!locked && selected}
 							>
 								<span>{a.emoji}</span>
 								<b>{a.name}</b>
@@ -2915,8 +3000,21 @@ try {
 		throw new Error("The secure desktop bridge did not load.");
 	createRoot(document.getElementById("root")!).render(<App />);
 } catch (error) {
+	// Rendered with DOM APIs rather than innerHTML: the message can originate
+	// from a rejected IPC/Supabase call, so interpolating it into markup would
+	// execute any HTML it happened to contain.
 	const root = document.getElementById("root");
-	if (root)
-		root.innerHTML = `<main style="font-family:Segoe UI,sans-serif;padding:40px;color:#7b2d2d"><h1>Lamp &amp; Light could not start</h1><p>${error instanceof Error ? error.message : String(error)}</p></main>`;
+	if (root) {
+		root.replaceChildren();
+		const main = document.createElement("main");
+		main.style.cssText =
+			"font-family:Segoe UI,sans-serif;padding:40px;color:#7b2d2d";
+		const heading = document.createElement("h1");
+		heading.textContent = "Lamp & Light could not start";
+		const detail = document.createElement("p");
+		detail.textContent = error instanceof Error ? error.message : String(error);
+		main.append(heading, detail);
+		root.append(main);
+	}
 	console.error(error);
 }

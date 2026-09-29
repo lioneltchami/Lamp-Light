@@ -475,7 +475,7 @@
 		var(--gold-eyebrow, #9a7750) 10%,
 		var(--surface)
 	);
-	color: var(--gold-eyebrow, #9a7750);
+	color: var(--gold-eyebrow);
 }
 .settings-meta {
 	margin: 18px 0 0;

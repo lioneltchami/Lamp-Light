@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   Clock,
@@ -32,6 +32,21 @@ import {
 
 type BookMode = "all" | "ot" | "nt" | "random" | "specific";
 
+// Local copy on purpose — no shared src/lib/visibility helper, so this file
+// stays independent of any other agent's module. The typeof guard keeps the
+// initialiser safe if this ever renders without a DOM (SSR / no-jsdom test).
+function useHidden() {
+  const [hidden, setHidden] = useState(
+    () => typeof document !== "undefined" && document.visibilityState === "hidden",
+  );
+  useEffect(() => {
+    const onChange = () => setHidden(document.visibilityState === "hidden");
+    document.addEventListener("visibilitychange", onChange);
+    return () => document.removeEventListener("visibilitychange", onChange);
+  }, []);
+  return hidden;
+}
+
 export default function CustomGame({
   books,
   onInviteCount,
@@ -41,6 +56,7 @@ export default function CustomGame({
 }) {
   const [roomCode, setRoomCode] = useState<string | null>(null),
     [joinCode, setJoinCode] = useState(""),
+    [joinError, setJoinError] = useState<string | null>(null),
     [error, setError] = useState("");
   const [mode, setMode] = useState<BookMode>("all"),
     [selected, setSelected] = useState<string[]>([]),
@@ -229,20 +245,42 @@ export default function CustomGame({
             <p>Enter the host’s room code.</p>
             <div>
               <input
+                id="join-code"
+                aria-label="Room code"
+                aria-describedby={joinError ? "join-code-error" : undefined}
+                aria-invalid={joinError ? true : undefined}
                 maxLength={6}
                 value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  setJoinCode(e.target.value.toUpperCase());
+                  setJoinError(null);
+                }}
                 placeholder="ABC123"
               />
               <button
                 type="button"
                 className="secondary"
-                disabled={busy || joinCode.length !== 6}
-                onClick={() => void run(() => joinMultiplayerGame(joinCode))}
+                disabled={busy}
+                onClick={() => {
+                  // Validate on submit rather than disabling the button: a
+                  // disabled control is unreachable by keyboard and announces
+                  // nothing, so it just looks broken.
+                  if (joinCode.trim().length !== 6) {
+                    setJoinError("Room codes are 6 characters.");
+                    return;
+                  }
+                  setJoinError(null);
+                  void run(() => joinMultiplayerGame(joinCode));
+                }}
               >
                 Join
               </button>
             </div>
+            {joinError && (
+              <p id="join-code-error" className="form-error" role="alert">
+                {joinError}
+              </p>
+            )}
           </section>
           <section className="scoring-card card">
             <Trophy />
@@ -264,19 +302,59 @@ function GameRoom({ code, leave }: { code: string; leave: () => void }) {
     [error, setError] = useState(""),
     [now, setNow] = useState(Date.now()),
     [copied, setCopied] = useState(false);
-  const load = () =>
-    getMultiplayerState(code)
+  const hidden = useHidden();
+  // useCallback so the polling effect below can depend on it honestly —
+  // without it, an inline `load` in the dep array would tear down and
+  // recreate the 750ms interval on every single render.
+  //
+  // The in-flight guard is load-bearing, not defensive tidiness. `load` can
+  // now take longer than the 750ms tick: `getMultiplayerState` retries once
+  // with up to 200ms of jitter, so a chain runs RTT + jitter + RTT. Once RTT
+  // climbs past ~275ms — which is exactly the degraded state that makes the
+  // retry fire in the first place — that outlives the tick, and without this
+  // guard every tick starts a second chain while the first is still running,
+  // so concurrent chains grow without bound for the length of the outage.
+  // Skipping the tick is the safe direction: it degrades to a slower poll
+  // rather than to more requests against a project that is already failing.
+  const loadInFlight = useRef(false);
+  const load = useCallback(() => {
+    if (loadInFlight.current) return;
+    loadInFlight.current = true;
+    return getMultiplayerState(code)
       .then(setGame)
-      .catch((e) => setError(onlineErrorMessage(e, "Game disconnected.")));
+      .catch((e) => setError(onlineErrorMessage(e, "Game disconnected.")))
+      .finally(() => {
+        loadInFlight.current = false;
+      });
+  }, [code]);
+  // The host drives shared game state, so its clock and phase driver must keep
+  // running even when this window is hidden — otherwise minimising the host's
+  // window freezes the round for every other player.
+  const isHost = Boolean(game?.host);
   useEffect(() => {
+    // While the window is hidden this effect returns *before* creating any
+    // interval, so neither the 750ms Supabase poll nor the 200ms render clock
+    // runs at all — it is stopped, not skipped. `hidden` is in the deps, so
+    // becoming visible again re-runs this effect and the two calls below are
+    // the resync: one immediate state fetch (the board can be arbitrarily
+    // stale) and one immediate clock read, so the countdown is right on the
+    // first visible frame. That is the same call the interval would make, not
+    // an extra one.
+    //
+    // Exception: the host keeps both running while hidden. The host drives
+    // shared game state (see the phase-expiry effect below) and the countdown
+    // is what decides when to advance it — freezing the clock would stall the
+    // round for every other player in the game.
+    if (hidden && !isHost) return;
     void load();
+    setNow(Date.now());
     const poll = setInterval(() => void load(), 750),
       clock = setInterval(() => setNow(Date.now()), 200);
     return () => {
       clearInterval(poll);
       clearInterval(clock);
     };
-  }, [code]);
+  }, [load, hidden, isHost]);
   const elapsed = game?.phaseStartedAt
     ? Math.max(0, (now - new Date(game.phaseStartedAt).getTime()) / 1000)
     : 0;
@@ -287,6 +365,11 @@ function GameRoom({ code, leave }: { code: string; leave: () => void }) {
         ? game.questionSeconds
         : 0;
   useEffect(() => {
+    // NOT gated on `hidden` — this is the one loop in the file that must keep
+    // running while the window is minimised. It performs a Supabase *write*
+    // that advances shared game state, so pausing it would freeze the round
+    // for every other player in the game, not just for this user. The other
+    // loops here only affect what this one user sees and are safe to pause.
     if (!game?.host || !phaseLimit || elapsed < phaseLimit) return;
     let active = true,
       inFlight = false;
@@ -310,6 +393,7 @@ function GameRoom({ code, leave }: { code: string; leave: () => void }) {
     };
   }, [
     code,
+    load,
     game?.host,
     game?.status,
     game?.currentIndex,
@@ -628,6 +712,7 @@ function GameInvitations({
   const [items, setItems] = useState<GameInvitation[]>([]),
     [error, setError] = useState(""),
     [dismissing, setDismissing] = useState(false);
+  const hidden = useHidden();
   useEffect(() => {
     let active = true;
     const load = async () => {
@@ -643,13 +728,18 @@ function GameInvitations({
           setError(onlineErrorMessage(e, "Could not load game invitations."));
       }
     };
+    // Early return means no interval is ever created while hidden. Re-running
+    // on resume calls load() once, immediately — that single call is the
+    // resync for the badge count, so invites that arrived while minimised
+    // show up on the first visible frame.
+    if (hidden) return;
     void load();
     const timer = setInterval(() => void load(), 5000);
     return () => {
       active = false;
       clearInterval(timer);
     };
-  }, [onCount]);
+  }, [onCount, hidden]);
   const dismiss = async (id: string) => {
     setDismissing(true);
     try {

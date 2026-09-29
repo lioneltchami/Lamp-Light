@@ -136,11 +136,21 @@ if (!electronFiles.length) {
 }
 
 const preload = readAsarFile(asarPath, "electron/preload.cjs", files);
-if (!preload.startsWith("const { contextBridge")) {
+// electron/preload.cjs is compiler output from scripts/generate-preload-cjs.mjs.
+// Assert on what makes it correct rather than on its exact opening bytes: the
+// generator prepends a banner, and tsc emits its own "use strict" prologue, so
+// pinning the first line breaks whenever either changes.
+if (!preload.includes("contextBridge") || !preload.includes("exposeInMainWorld")) {
   console.error(
     "FAIL: electron/preload.cjs inside asar is corrupted or wrong file.",
   );
   console.error("First bytes:", Buffer.from(preload).subarray(0, 40));
+  process.exit(1);
+}
+// The preload runs as CommonJS in Electron. An ESM `import`/`export` here means
+// the transpile silently stopped happening and the bridge will fail at runtime.
+if (/^\s*(?:import|export)\s/m.test(preload)) {
+  console.error("FAIL: electron/preload.cjs contains ESM syntax; it must be CommonJS.");
   process.exit(1);
 }
 mustInclude(preload, "onNavigate", "preload.cjs");
@@ -158,12 +168,19 @@ const main = readAsarFile(asarPath, "dist-electron/electron/main.js", files);
 mustInclude(main, "whenReady", "main.js");
 mustInclude(main, "createMainWindow", "main.js");
 mustInclude(main, "profile:custom-avatar", "main.js");
-mustInclude(main, "custom_avatar_path", "main.js");
 mustInclude(main, "reminder:get", "main.js");
 mustInclude(main, "reminder:set", "main.js");
 mustInclude(main, "share:clipboard", "main.js");
 mustInclude(main, "installApplicationMenu", "main.js");
 mustInclude(main, "syncDockBadge", "main.js");
+// The custom-avatar column now lives in the profiles service module after the
+// main.ts split; assert it ships rather than pinning it to one file.
+const profilesService = readAsarFile(
+  asarPath,
+  "dist-electron/electron/service/profiles.js",
+  files,
+);
+mustInclude(profilesService, "custom_avatar_path", "service/profiles.js");
 mustInclude(main, 'app.on("activate"', "main.js");
 
 const macos = readAsarFile(asarPath, "dist-electron/electron/macos.js", files);

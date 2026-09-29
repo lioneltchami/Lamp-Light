@@ -25,6 +25,8 @@ const ALLOWED_INVOKE_CHANNELS = new Set<string>([
 	"chapter-bookmark:clear",
 	"chapter-bookmark:list",
 	"chapter-bookmark:set",
+	"diagnostics:export",
+	"diagnostics:read",
 	"highlight:set",
 	"highlights:list",
 	"multiplayer:questions",

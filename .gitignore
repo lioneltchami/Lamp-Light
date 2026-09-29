@@ -14,3 +14,13 @@ content/*.sqlite*
 
 # Local Netlify folder
 .netlify
+
+# Stray build artifacts from ad-hoc asar extraction / tooling
+/main.js
+
+# Scratch files and trees from one-off diffing during refactors
+/.tmp-*
+
+# Local agent tooling
+/.agents/
+/skills-lock.json

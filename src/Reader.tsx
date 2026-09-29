@@ -98,6 +98,8 @@ export default function Reader({
   const [searching, setSearching] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchError = useAsyncError();
+  // Stable `wrap` for effect deps — see the note on the search effect below.
+  const { wrap: wrapSearchError, clear: clearSearchError } = searchError;
   const [scrolled, setScrolled] = useState(false);
   const [targetVerse, setTargetVerse] = useState<number | null>(null);
   const [editingVerse, setEditingVerse] = useState<number | null>(null);
@@ -325,22 +327,25 @@ export default function Reader({
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
-      searchError.clear();
+      clearSearchError();
       return;
     }
     const timer = setTimeout(() => {
       setSearching(true);
-      void searchError
-        .wrap(
-          api<VerseSearchResult[]>("bible:search", { query, translationId }),
-        )
+      void wrapSearchError(
+        api<VerseSearchResult[]>("bible:search", { query, translationId }),
+      )
         .then((result) => {
           if (result) setResults(result);
         })
         .finally(() => setSearching(false));
     }, 250);
     return () => clearTimeout(timer);
-  }, [query, translationId, searchError]);
+    // `wrapSearchError` (the stable `wrap` callback), never `searchError`
+    // itself: the result object is memoized on `error`, so a failed search
+    // would change its identity, re-run this effect, and re-issue the search
+    // that just failed — an unbounded retry loop while the query stays open.
+  }, [query, translationId, wrapSearchError]);
   useEffect(() => {
     const keys = (event: KeyboardEvent) => {
       if ((event.target as HTMLElement)?.matches("input,select")) return;
@@ -1225,6 +1230,7 @@ export default function Reader({
             <>
               <textarea
                 autoFocus
+                aria-label={`Note on verse ${editingVerse}`}
                 value={noteDraft}
                 onChange={(event) => setNoteDraft(event.target.value)}
                 placeholder="Write a private note saved only to this profile…"

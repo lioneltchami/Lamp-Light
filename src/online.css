@@ -904,7 +904,9 @@
 }
 .unavailable,
 .form-error {
-  color: #a44f45 !important;
+  /* Was a hardcoded #a44f45, which is 2.8:1 on the dark theme's paper and so
+     failed AA for error text. --bad-fg is 5.9:1 light / 8.4:1 dark. */
+  color: var(--bad-fg) !important;
 }
 .verify-card {
   text-align: center;

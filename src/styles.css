@@ -119,6 +119,40 @@ button {
   margin-top: 16px;
   color: var(--faint);
 }
+/* Keyboard-only shortcut past the header nav. Off-screen until focused. */
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 12px;
+  z-index: 100;
+  padding: 10px 18px;
+  border-radius: 8px;
+  background: var(--green);
+  color: var(--paper);
+  font-weight: 700;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 12px;
+}
+main[tabindex="-1"]:focus {
+  /* Focus lands here programmatically on page change; a ring around the whole
+     content column reads as a rendering bug. The focused <h1>, when present,
+     keeps its visible ring - see the [tabindex="-1"] rule below. */
+  outline: none;
+}
+/* Visible indicator for the heading that receives focus on page change.
+   Keyed on :focus, not :focus-visible: a programmatic .focus() on a
+   tabindex="-1" element does not match :focus-visible when the navigation was
+   mouse-initiated (Chromium/WebKit decide from the last input modality), so a
+   :focus-visible-only ring is invisible for anyone who clicks a nav item and
+   then reaches for the keyboard. Matches every page view - all of them render
+   an <h1>. */
+main :is(h1, h2)[tabindex="-1"]:focus {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
 .app-header {
   height: 78px;
   background: var(--paper-glass);
